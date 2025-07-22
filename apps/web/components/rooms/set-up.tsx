@@ -12,7 +12,6 @@ type SetUpProps = {
 
 const SetUp = ({ onJoin }: SetUpProps) => {
   const {
-    localStreamRef,
     videoRef,
     cameraEnabled,
     micEnabled,
