@@ -5,7 +5,14 @@ import { Room } from "@/lib/room";
 import { createTransport } from "@/lib/transport";
 import { getMediasoupWorker } from "@/lib/worker";
 import { db } from "@call/db";
+import {
+  room as roomTable,
+  roomUser as roomUserTable,
+  user as userTable,
+} from "@call/db/schema";
+import { eq, and } from "drizzle-orm";
 import chalk from "chalk";
+import crypto from "crypto";
 
 const AUTH_TOKEN = "demo-token";
 
@@ -13,85 +20,130 @@ const rooms: Map<string, Room> = new Map();
 let mediasoupWorker: Worker;
 
 const socketIoConnection = async (io: SocketIOServer) => {
-  console.log(chalk.blue('🔧 Initializing Socket.IO connection handlers...'));
+  console.log(chalk.blue("🔧 Initializing Socket.IO connection handlers..."));
 
   if (!mediasoupWorker) {
-    console.log(chalk.yellow('🔄 Creating mediasoup worker...'));
+    console.log(chalk.yellow("🔄 Creating mediasoup worker..."));
     mediasoupWorker = getMediasoupWorker();
-    console.log(chalk.green('✅ Mediasoup worker created'));
+    console.log(chalk.green("✅ Mediasoup worker created"));
   }
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (token !== AUTH_TOKEN) {
-      console.log(chalk.red(`❌ Authentication failed for socket ${socket.id}`));
+      console.log(
+        chalk.red(`❌ Authentication failed for socket ${socket.id}`)
+      );
       return next(new Error("Authentication error"));
     }
-    console.log(chalk.green(`✅ Authentication successful for socket ${socket.id}`));
+    console.log(
+      chalk.green(`✅ Authentication successful for socket ${socket.id}`)
+    );
     next();
   });
 
   io.on("connection", (socket: Socket) => {
-    console.log(chalk.green(`🎯 Socket.IO connection established: ${socket.id}`));
+    console.log(
+      chalk.green(`🎯 Socket.IO connection established: ${socket.id}`)
+    );
     let currentRoom: Room | undefined;
     let peerId = socket.id;
 
     socket.on("createRoom", async ({ roomId }, callback) => {
-      if (!rooms.has(roomId)) {
-        const router = await mediasoupWorker.createRouter({
-          mediaCodecs: config.mediasoup.router.mediaCodecs,
-        });
-        const room = new Room(roomId, router);
-        rooms.set(roomId, room);
-      }
+      try {
+        // Check if room exists in database
+        const dbRoom = await db
+          .select()
+          .from(roomTable)
+          .where(eq(roomTable.id, roomId))
+          .limit(1);
 
-      //   if (!db.data!.rooms.find((r) => r.id === roomId)) {
-      //     db.data!.rooms.push({ id: roomId, users: [] });
-      //     await db.write();
-      //   }
-      //   callback({ roomId });
+        if (dbRoom.length === 0) {
+          return callback({ error: "Room not found in database" });
+        }
+
+        // Create mediasoup room if it doesn't exist
+        if (!rooms.has(roomId)) {
+          const router = await mediasoupWorker.createRouter({
+            mediaCodecs: config.mediasoup.router.mediaCodecs,
+          });
+          const room = new Room(roomId, router);
+          rooms.set(roomId, room);
+        }
+
+        callback({ roomId });
+      } catch (error) {
+        console.error("Error creating room:", error);
+        callback({ error: "Failed to create room" });
+      }
     });
 
-    socket.on("joinRoom", async ({ roomId, token }, callback) => {
+    socket.on("joinRoom", async ({ roomId, token, userId }, callback) => {
       if (token !== AUTH_TOKEN) return callback({ error: "Invalid token" });
-      let room = rooms.get(roomId);
-      if (!room) {
-        const router = await mediasoupWorker.createRouter({
-          mediaCodecs: config.mediasoup.router.mediaCodecs,
-        });
-        room = new Room(roomId, router);
-        rooms.set(roomId, room);
+
+      try {
+        // Check if room exists in database
+        const dbRoom = await db
+          .select()
+          .from(roomTable)
+          .where(eq(roomTable.id, roomId))
+          .limit(1);
+
+        if (dbRoom.length === 0) {
+          return callback({ error: "Room not found" });
+        }
+
+        // Create or get mediasoup room
+        let room = rooms.get(roomId);
+        if (!room) {
+          const router = await mediasoupWorker.createRouter({
+            mediaCodecs: config.mediasoup.router.mediaCodecs,
+          });
+          room = new Room(roomId, router);
+          rooms.set(roomId, room);
+        }
+
+        currentRoom = room;
+        room.addPeer(peerId);
+
+        console.log(`[Room ${roomId}] Peer ${peerId} joined`);
+        console.log(
+          `[Room ${roomId}] Current peers:`,
+          Array.from(room.peers.keys())
+        );
+
+        socket.join(roomId);
+
+        // Add user to room in database
+        if (userId) {
+          // Check if user exists
+          const user = await db
+            .select()
+            .from(userTable)
+            .where(eq(userTable.id, userId))
+            .limit(1);
+
+          if (user.length > 0) {
+            // Add user to room_user table
+            await db.insert(roomUserTable).values({
+              id: crypto.randomUUID(),
+              roomId,
+              userId,
+              isMicActive: true,
+              isCamActive: true,
+              isShareScreen: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        }
+
+        const producers = currentRoom.getProducers();
+        callback({ producers });
+      } catch (error) {
+        console.error("Error joining room:", error);
+        callback({ error: "Failed to join room" });
       }
-      currentRoom = room;
-      room.addPeer(peerId);
-
-      console.log(`[Room ${roomId}] Peer ${peerId} joined`);
-      console.log(
-        `[Room ${roomId}] Current peers:`,
-        Array.from(room.peers.keys())
-      );
-
-      socket.join(roomId);
-
-      // await db.read();
-      // let dbRoom = db.data!.rooms.find((r) => r.id === roomId);
-      // if (dbRoom && !dbRoom.users.some((u) => u.userId === peerId)) {
-      //   dbRoom.users.push({
-      //     userId: peerId,
-      //     micActive: true,
-      //     camActive: true,
-      //     isShareScreen: false,
-      //   });
-      //   await db.write();
-      // }
-      // if (!db.data!.users.find((u) => u.id === peerId)) {
-      //   db.data!.users.push({ id: peerId, name: peerId });
-      //   await db.write();
-      // }
-
-      const producers = currentRoom.getProducers();
-
-      callback({ producers });
     });
 
     socket.on("createWebRtcTransport", async (data, callback) => {
@@ -275,25 +327,22 @@ const socketIoConnection = async (io: SocketIOServer) => {
       currentRoom.removePeer(peerId);
       socket.to(currentRoom.id).emit("userLeft", { userId: peerId });
 
-      // await db.read();
-      // const dbRoom = db.data!.rooms.find((r) => r.id === currentRoom!.id);
-      // if (dbRoom) {
-      //   dbRoom.users = dbRoom.users.filter((u) => u.userId !== peerId);
-      //   await db.write();
-      // }
-
-      // const stillInRoom = db.data!.rooms.some((r) =>
-      //   r.users.some((u) => u.userId === peerId)
-      // );
-      // if (!stillInRoom) {
-      //   db.data!.users = db.data!.users.filter((u) => u.id !== peerId);
-      //   await db.write();
-      // }
+      // Remove user from room_user table
+      try {
+        await db
+          .delete(roomUserTable)
+          .where(
+            and(
+              eq(roomUserTable.roomId, currentRoom.id),
+              eq(roomUserTable.userId, peerId)
+            )
+          );
+      } catch (error) {
+        console.error("Error removing user from room:", error);
+      }
 
       if (currentRoom.peers.size === 0) {
         rooms.delete(currentRoom.id);
-        // db.data!.rooms = db.data!.rooms.filter((r) => r.id !== currentRoom!.id);
-        // await db.write();
       }
     };
 
@@ -347,16 +396,26 @@ const socketIoConnection = async (io: SocketIOServer) => {
         user.micActive = micActive;
         user.camActive = camActive;
         user.isShareScreen = isShareScreen;
-        // await db.read();
-        // const dbRoom = db.data!.rooms.find((r) => r.id === currentRoom!.id);
-        // if (dbRoom) {
-        //   dbRoom.users = dbRoom.users.map((u) =>
-        //     u.userId === userId
-        //       ? { ...u, micActive, camActive, isShareScreen }
-        //       : u
-        //   );
-        //   await db.write();
-        // }
+
+        // Update user in database
+        try {
+          await db
+            .update(roomUserTable)
+            .set({
+              isMicActive: micActive,
+              isCamActive: camActive,
+              isShareScreen: isShareScreen,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(roomUserTable.roomId, currentRoom.id),
+                eq(roomUserTable.userId, userId)
+              )
+            );
+        } catch (error) {
+          console.error("Error updating user in database:", error);
+        }
 
         socket.to(currentRoom.id).emit("userUpdated", {
           userId,
@@ -470,16 +529,35 @@ const socketIoConnection = async (io: SocketIOServer) => {
       callback(screenShares);
     });
 
-    socket.on("getUsersInRoom", (data, callback) => {
+    socket.on("getUsersInRoom", async (data, callback) => {
       if (!currentRoom) return callback([]);
-      console.log("getUsersInRoom", currentRoom);
-      const users = Array.from(currentRoom.peers.values()).map((p) => ({
-        userId: p.id,
-        micActive: p.micActive,
-        camActive: p.camActive,
-        isShareScreen: p.isShareScreen,
-      }));
-      callback(users);
+
+      try {
+        // Get users from database
+        const roomUsers = await db
+          .select({
+            userId: roomUserTable.userId,
+            isMicActive: roomUserTable.isMicActive,
+            isCamActive: roomUserTable.isCamActive,
+            isShareScreen: roomUserTable.isShareScreen,
+          })
+          .from(roomUserTable)
+          .where(eq(roomUserTable.roomId, currentRoom.id));
+
+        // Map to expected format
+        const users = roomUsers.map((u) => ({
+          userId: u.userId,
+          micActive: u.isMicActive,
+          camActive: u.isCamActive,
+          isShareScreen: u.isShareScreen,
+        }));
+
+        console.log(`[Room ${currentRoom.id}] Users in room:`, users);
+        callback(users);
+      } catch (error) {
+        console.error("Error fetching users in room:", error);
+        callback([]);
+      }
     });
 
     socket.on("disconnect", async () => {
