@@ -23,8 +23,6 @@ CREATE TABLE "notifications" (
 	"created_at" timestamp NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "contacts" DROP CONSTRAINT "contacts_user_id_contact_id_pk";--> statement-breakpoint
-ALTER TABLE "team_members" DROP CONSTRAINT "team_members_team_id_user_id_pk";--> statement-breakpoint
 ALTER TABLE "call_invitations" ADD CONSTRAINT "call_invitations_call_id_calls_id_fk" FOREIGN KEY ("call_id") REFERENCES "public"."calls"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "call_invitations" ADD CONSTRAINT "call_invitations_invitee_id_user_id_fk" FOREIGN KEY ("invitee_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "calls" ADD CONSTRAINT "calls_creator_id_user_id_fk" FOREIGN KEY ("creator_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

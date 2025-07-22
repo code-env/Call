@@ -1,0 +1,1 @@
+ALTER TABLE "room" ADD COLUMN "users" jsonb DEFAULT '[]'::jsonb NOT NULL;

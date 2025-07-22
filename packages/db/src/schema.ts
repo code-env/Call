@@ -6,6 +6,7 @@ import {
   integer,
   pgEnum,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // Auth schema
@@ -102,6 +103,26 @@ export const room = pgTable("room", {
   requireAccessBeforeJoining: boolean("require_access_before_joining")
     .notNull()
     .default(false),
+  users: jsonb("users").notNull().default([]),
+});
+
+export const roomUser = pgTable("room_user", {
+  id: text("id").primaryKey(),
+  roomId: text("room_id")
+    .notNull()
+    .references(() => room.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  isMicActive: boolean("is_mic_active").notNull().default(false),
+  isCamActive: boolean("is_cam_active").notNull().default(false),
+  isShareScreen: boolean("is_share_screen").notNull().default(false),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
 });
 
 // Contact Request Status Enum

@@ -41,7 +41,7 @@ contactsRoutes.post("/invite", async (c) => {
         to: receiverEmail,
         subject: "Invitation to join Call",
         text: `You are invited to join Call by ${user.name} here is the link ${process.env.FRONTEND_URL}/login`,
-        
+
       });
       return c.json({ message: "Email sent to receiver to invite them to the app." }, 200);
     }
@@ -53,11 +53,11 @@ contactsRoutes.post("/invite", async (c) => {
         .from(contacts)
         .where(and(eq(contacts.userId, senderId), eq(contacts.contactId, receiverId)))
         .limit(1);
-    
+
       if (existingRelation) {
         return c.json({ message: "You are already contacts with this user." }, 409);
       }
-    
+
     const [existingRequest] = await db
       .select({ id: contactRequests.id })
       .from(contactRequests)
@@ -136,7 +136,7 @@ contactsRoutes.patch("/requests/:id/accept", async (c) => {
       if (!request) {
         return c.json({ message: "Request not found, already handled, or you are not the recipient." }, 404);
       }
-      
+
       const senderId = request.senderId;
 
       await tx.update(contactRequests).set({ status: "accepted" }).where(eq(contactRequests.id, requestId));
