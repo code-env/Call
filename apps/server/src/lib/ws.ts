@@ -49,40 +49,38 @@ const socketIoConnection = async (io: SocketIOServer) => {
     let currentRoom: Room | undefined;
     let peerId = socket.id;
 
-    socket.on("createRoom", async ({ roomId }, callback) => {
-      try {
-        // Check if room exists in database
-        const dbRoom = await db
-          .select()
-          .from(roomTable)
-          .where(eq(roomTable.id, roomId))
-          .limit(1);
+    // socket.on("createRoom", async ({ roomId }, callback) => {
+    //   try {
+    //     const dbRoom = await db
+    //       .select()
+    //       .from(roomTable)
+    //       .where(eq(roomTable.id, roomId))
+    //       .limit(1);
 
-        if (dbRoom.length === 0) {
-          return callback({ error: "Room not found in database" });
-        }
+    //     if (dbRoom.length === 0) {
+    //       return callback({ error: "Room not found in database" });
+    //     }
 
-        // Create mediasoup room if it doesn't exist
-        if (!rooms.has(roomId)) {
-          const router = await mediasoupWorker.createRouter({
-            mediaCodecs: config.mediasoup.router.mediaCodecs,
-          });
-          const room = new Room(roomId, router);
-          rooms.set(roomId, room);
-        }
+    //     // Create mediasoup room if it doesn't exist
+    //     if (!rooms.has(roomId)) {
+    //       const router = await mediasoupWorker.createRouter({
+    //         mediaCodecs: config.mediasoup.router.mediaCodecs,
+    //       });
+    //       const room = new Room(roomId, router);
+    //       rooms.set(roomId, room);
+    //     }
 
-        callback({ roomId });
-      } catch (error) {
-        console.error("Error creating room:", error);
-        callback({ error: "Failed to create room" });
-      }
-    });
+    //     callback({ roomId });
+    //   } catch (error) {
+    //     console.error("Error creating room:", error);
+    //     callback({ error: "Failed to create room" });
+    //   }
+    // });
 
     socket.on("joinRoom", async ({ roomId, token, userId }, callback) => {
       if (token !== AUTH_TOKEN) return callback({ error: "Invalid token" });
 
       try {
-        // Check if room exists in database
         const dbRoom = await db
           .select()
           .from(roomTable)
@@ -114,9 +112,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
 
         socket.join(roomId);
 
-        // Add user to room in database
         if (userId) {
-          // Check if user exists
           const user = await db
             .select()
             .from(userTable)
@@ -124,7 +120,6 @@ const socketIoConnection = async (io: SocketIOServer) => {
             .limit(1);
 
           if (user.length > 0) {
-            // Add user to room_user table
             await db.insert(roomUserTable).values({
               id: crypto.randomUUID(),
               roomId,

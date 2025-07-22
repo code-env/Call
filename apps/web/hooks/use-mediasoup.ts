@@ -27,7 +27,7 @@ export function useMediasoupClient() {
 
   // Join or create a room
   const joinRoom = useCallback(
-    async (roomId: string): Promise<JoinResponse> => {
+    async (roomId: string, userId?: string): Promise<JoinResponse> => {
       if (!socket || !connected) {
         console.error("Socket not connected");
         throw new Error("Socket not connected");
@@ -36,21 +36,21 @@ export function useMediasoupClient() {
       console.log("Creating/joining room:", roomId);
 
       try {
-        await new Promise<void>((resolve, reject) => {
-          socket.emit("createRoom", { roomId }, (response: any) => {
-            if (response.error) {
-              reject(new Error(response.error));
-            } else {
-              resolve();
-            }
-          });
-        });
+        // await new Promise<void>((resolve, reject) => {
+        //   socket.emit("createRoom", { roomId }, (response: any) => {
+        //     if (response.error) {
+        //       reject(new Error(response.error));
+        //     } else {
+        //       resolve();
+        //     }
+        //   });
+        // });
 
         const responseData = await new Promise<JoinResponse>(
           (resolve, reject) => {
             socket.emit(
               "joinRoom",
-              { roomId, token: "demo-token" },
+              { roomId, token: "demo-token", userId },
               (response: any) => {
                 if (response.error) {
                   reject(new Error(response.error));
