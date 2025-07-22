@@ -8,6 +8,8 @@ import { logger } from "hono/logger";
 import { serve } from '@hono/node-server';
 import chalk from 'chalk';
 import { networkInterfaces } from 'os';
+import { Server as SocketIOServer } from "socket.io";
+import { socketIoConnection } from "./lib/ws.ts";
 
 export interface ReqVariables {
   user: typeof auth.$Infer.Session.user | null;
@@ -37,8 +39,8 @@ app.use(
     },
     credentials: true,
     allowHeaders: [
-      "Content-Type", 
-      "Authorization", 
+      "Content-Type",
+      "Authorization",
       "X-Requested-With",
       "Accept",
       "Origin"
@@ -84,7 +86,7 @@ const getNetworkIP = () => {
 
 const logServerStart = (port: number) => {
   const networkIP = getNetworkIP();
-  
+
   console.log(chalk.cyan('\nServer Starting...'));
   console.log(chalk.gray('━'.repeat(50)));
   console.log(chalk.green(`Server running on port ${port}`));
@@ -98,18 +100,41 @@ const startServerWithEventHandling = async (startPort: number, maxAttempts: numb
   return new Promise((resolve, reject) => {
     let currentPort = startPort;
     let attempts = 0;
-    
+
     const tryPort = () => {
       if (attempts >= maxAttempts) {
         reject(new Error(`Could not start server after ${maxAttempts} attempts`));
         return;
       }
-      
+
       try {
         const server = serve({
           fetch: app.fetch,
           port: currentPort,
           hostname: '0.0.0.0',
+        });
+
+        const io = new SocketIOServer(server);
+
+        console.log(chalk.blue('🔌 Setting up Socket.IO connection...'));
+
+        socketIoConnection(io);
+
+        io.on('connection', (socket) => {
+          console.log(chalk.green(`✅ Socket.IO client connected: ${socket.id}`));
+
+          socket.on('disconnect', () => {
+            console.log(chalk.yellow(`❌ Socket.IO client disconnected: ${socket.id}`));
+          });
+        });
+
+        app.get('/health', (c) => {
+          return c.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            socketIo: 'connected',
+            port: currentPort
+          });
         });
 
         server.once('error', (error: any) => {
@@ -128,14 +153,15 @@ const startServerWithEventHandling = async (startPort: number, maxAttempts: numb
             console.log(chalk.yellow(`Port ${startPort} was busy, using ${currentPort} instead`));
           }
           logServerStart(currentPort);
+          console.log(chalk.green('🎉 Socket.IO server is ready and connected to Hono!'));
           resolve();
         });
-        
+
       } catch (error) {
         reject(error);
       }
     };
-    
+
     tryPort();
   });
 };

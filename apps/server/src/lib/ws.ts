@@ -5,6 +5,7 @@ import { Room } from "@/lib/room";
 import { createTransport } from "@/lib/transport";
 import { getMediasoupWorker } from "@/lib/worker";
 import { db } from "@call/db";
+import chalk from "chalk";
 
 const AUTH_TOKEN = "demo-token";
 
@@ -12,19 +13,26 @@ const rooms: Map<string, Room> = new Map();
 let mediasoupWorker: Worker;
 
 const socketIoConnection = async (io: SocketIOServer) => {
+  console.log(chalk.blue('🔧 Initializing Socket.IO connection handlers...'));
+
   if (!mediasoupWorker) {
+    console.log(chalk.yellow('🔄 Creating mediasoup worker...'));
     mediasoupWorker = getMediasoupWorker();
+    console.log(chalk.green('✅ Mediasoup worker created'));
   }
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (token !== AUTH_TOKEN) {
+      console.log(chalk.red(`❌ Authentication failed for socket ${socket.id}`));
       return next(new Error("Authentication error"));
     }
+    console.log(chalk.green(`✅ Authentication successful for socket ${socket.id}`));
     next();
   });
 
   io.on("connection", (socket: Socket) => {
+    console.log(chalk.green(`🎯 Socket.IO connection established: ${socket.id}`));
     let currentRoom: Room | undefined;
     let peerId = socket.id;
 
@@ -123,7 +131,6 @@ const socketIoConnection = async (io: SocketIOServer) => {
           }
         );
 
-        // Notify all other users in the room about the new producer
         socket.to(currentRoom.id).emit("newProducer", {
           producerId: producer.id,
           userId: peerId,
@@ -286,7 +293,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
       if (currentRoom.peers.size === 0) {
         rooms.delete(currentRoom.id);
         // db.data!.rooms = db.data!.rooms.filter((r) => r.id !== currentRoom!.id);
-        await db.write();
+        // await db.write();
       }
     };
 
