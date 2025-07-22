@@ -15,7 +15,7 @@ routes.route("/calls", callsRoutes);
 routes.route("/contacts", contactsRoutes);
 routes.route("/email", emailRoutes);
 routes.route("/notifications", notificationsRoutes);
-routes.route("/room", roomRoutes);
+routes.route("/rooms", roomRoutes);
 routes.route("/teams", teamsRoutes);
 
 export default routes;
