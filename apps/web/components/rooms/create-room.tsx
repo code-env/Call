@@ -35,7 +35,7 @@ const CreateRoom = () => {
 
   const onSubmit = async (data: CreateRoomForm) => {
     try {
-      const response = await apiClient.post("/api/rooms/create", data);
+      const response = await apiClient.post("/rooms/create", data);
       if (response.status === 200) {
         router.push(`/r/${response.data.room.id}`);
       }

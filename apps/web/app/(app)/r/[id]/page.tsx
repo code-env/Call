@@ -1,3 +1,4 @@
+import { RoomProvider } from "@/components/providers/room";
 import RoomPage from "./room";
 
 interface RoomPageProps {
@@ -6,10 +7,12 @@ interface RoomPageProps {
   }>;
 }
 
-const Page = async ({ params }: RoomPageProps) => {
-  const { id } = await params;
-
-  return <RoomPage id={id} />;
+const Page = async () => {
+  return (
+    <RoomProvider>
+      <RoomPage />
+    </RoomProvider>
+  );
 };
 
 export default Page;

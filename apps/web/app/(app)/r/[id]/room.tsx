@@ -1,5 +1,6 @@
 "use client";
 
+import { useRoom } from "@/components/providers/room";
 import { useUsers } from "@/components/providers/users";
 import SetUp from "@/components/rooms/set-up";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
@@ -10,9 +11,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-const RoomPage = ({ id }: { id: string }) => {
+const RoomPage = () => {
   const router = useRouter();
   const { users } = useUsers();
+  const { room } = useRoom();
 
   const {
     joinRoom,
@@ -30,7 +32,7 @@ const RoomPage = ({ id }: { id: string }) => {
 
   const { onNewScreenShare, onScreenShareStopped } = useScreenShare();
 
-  const [roomId, setRoomId] = useState(id);
+  const [roomId, setRoomId] = useState(room?.id ?? "");
   const [joined, setJoined] = useState(false);
   const [roomData, setRoomData] = useState<any>(null);
   const [userId, setUserId] = useState<string>("");
@@ -301,6 +303,8 @@ const RoomPage = ({ id }: { id: string }) => {
     window.location.reload();
     router.push("/");
   };
+
+  if (!room) return <div>Loading...</div>;
 
   return (
     <>
