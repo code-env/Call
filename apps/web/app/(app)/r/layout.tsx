@@ -1,3 +1,4 @@
+import { ControlsProvider } from "@/components/providers/controls";
 import { MediasoupProvider } from "@/components/providers/mediasoup";
 import { RoomProvider } from "@/components/providers/room";
 import { ScreenShareProvider } from "@/components/providers/screen-share";
@@ -11,7 +12,9 @@ const RoomLayout = ({ children }: { children: React.ReactNode }) => {
       <RoomProvider>
         <UsersProvider>
           <MediasoupProvider>
-            <ScreenShareProvider>{children}</ScreenShareProvider>
+            <ScreenShareProvider>
+              <ControlsProvider>{children}</ControlsProvider>
+            </ScreenShareProvider>
           </MediasoupProvider>
         </UsersProvider>
       </RoomProvider>

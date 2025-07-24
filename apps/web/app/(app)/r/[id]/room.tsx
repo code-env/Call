@@ -7,7 +7,6 @@ import { useSession } from "@/components/providers/session";
 import { useUsers } from "@/components/providers/users";
 import SetUp from "@/components/rooms/set-up";
 import ScreenShareDisplay from "@/components/screenshare-display";
-import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
 import { useScreenShareProvider } from "@/components/providers/screen-share";
 import { cn } from "@call/ui/lib/utils";
@@ -20,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Participant } from "@/lib/types";
 import { useMediasoup } from "@/components/providers/mediasoup";
+import { useControls } from "@/components/providers/controls";
 
 const RoomPage = () => {
   const router = useRouter();
@@ -38,15 +38,7 @@ const RoomPage = () => {
     isScreenSharing,
   } = useMediasoup();
 
-  const {
-    localStreamRef,
-    videoRef,
-    cameraEnabled,
-    micEnabled,
-    toggleCamera,
-    toggleMic,
-    loadMediaDevices,
-  } = useMediaControl();
+  const { localStreamRef, micEnabled, cameraEnabled } = useControls();
 
   const { onNewScreenShare, onScreenShareStopped, screenShareStream } =
     useScreenShareProvider();
@@ -56,15 +48,6 @@ const RoomPage = () => {
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
   >({});
-
-  useEffect(() => {
-    const initializeMedia = async () => {
-      await loadMediaDevices({ audio: true, video: true });
-    };
-    initializeMedia();
-
-    console.log("localStreamRef.current", localStreamRef.current);
-  }, []);
 
   const consumeAndAddTrack = useCallback(
     async ({
@@ -468,14 +451,7 @@ const RoomPage = () => {
         </div>
       ) : (
         <div>
-          <SetUp
-            onJoin={handleJoin}
-            cameraEnabled={cameraEnabled}
-            micEnabled={micEnabled}
-            toggleCamera={toggleCamera}
-            toggleMic={toggleMic}
-            videoRef={videoRef as React.RefObject<HTMLVideoElement>}
-          />
+          <SetUp onJoin={handleJoin} />
         </div>
       )}
     </>

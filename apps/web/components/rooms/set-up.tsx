@@ -3,24 +3,33 @@
 import { Badge } from "@call/ui/components/badge";
 import { Button } from "@call/ui/components/button";
 import { CameraIcon, MicIcon } from "lucide-react";
+import { useControls } from "../providers/controls";
+import { useEffect } from "react";
 
 type SetUpProps = {
   onJoin: () => void;
-  cameraEnabled: boolean;
-  micEnabled: boolean;
-  toggleCamera: () => void;
-  toggleMic: () => void;
-  videoRef: React.RefObject<HTMLVideoElement>;
 };
 
-const SetUp = ({
-  onJoin,
-  cameraEnabled,
-  micEnabled,
-  toggleCamera,
-  toggleMic,
-  videoRef,
-}: SetUpProps) => {
+const SetUp = ({ onJoin }: SetUpProps) => {
+  const { loadMediaDevices } = useControls();
+
+  useEffect(() => {
+    const initializeMedia = async () => {
+      await loadMediaDevices({ audio: true, video: true });
+    };
+    initializeMedia();
+
+    console.log("localStreamRef.current", localStreamRef.current);
+  }, []);
+
+  const {
+    videoRef,
+    cameraEnabled,
+    micEnabled,
+    toggleCamera,
+    toggleMic,
+    localStreamRef,
+  } = useControls();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="flex w-full max-w-screen-lg flex-col items-center justify-center gap-4 p-4">
