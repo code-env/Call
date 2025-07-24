@@ -6,16 +6,18 @@ import type {
   TransportOptions,
   RtpCapabilities,
   RtpParameters,
+  Producer,
 } from "mediasoup-client/types";
 import { useSocket } from "@/components/providers/socket";
 import { useRoom } from "@/components/providers/room";
 import { useUsers, type User } from "@/components/providers/users";
+import { toast } from "sonner";
 
 interface JoinResponse {
   producers: {
     producerId: string;
     userId: string;
-    kind: "audio" | "video";
+    kind: "audio" | "video" | "screen";
   }[];
   users: User[];
 }
@@ -27,10 +29,13 @@ export function useMediasoupClient() {
   const deviceRef = useRef<Device | null>(null);
   const sendTransportRef = useRef<Transport | null>(null);
   const recvTransportRef = useRef<Transport | null>(null);
+  const screenShareProducerRef = useRef<Producer | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<MediaStream[]>([]);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const screenSendTransportRef = useRef<Transport | null>(null);
+  const screenRecvTransportRef = useRef<Transport | null>(null);
 
-  // Join or create a room
   const joinRoom = useCallback(
     async (roomId: string, userId?: string): Promise<JoinResponse> => {
       if (!socket || !connected || !room) {
@@ -332,6 +337,148 @@ export function useMediasoupClient() {
     [socket]
   );
 
+  const createScreenSendTransport = useCallback(async () => {
+    if (!socket) return;
+
+    return new Promise<Transport>((resolve, reject) => {
+      socket.emit(
+        "createWebRtcTransport",
+        {},
+        async (params: TransportOptions) => {
+          const device = deviceRef.current;
+          if (!device) return reject("Device not loaded");
+
+          const transport = device.createSendTransport(params);
+
+          transport.on("connect", ({ dtlsParameters }, callback, errback) => {
+            socket.emit(
+              "connectWebRtcTransport",
+              { transportId: transport.id, dtlsParameters },
+              (res: { connected: boolean }) => {
+                if (res.connected) callback();
+                else errback(new Error("Failed to connect screen transport"));
+              }
+            );
+          });
+
+          transport.on(
+            "produce",
+            ({ kind, rtpParameters }, callback, errback) => {
+              socket.emit(
+                "produce",
+                {
+                  transportId: transport.id,
+                  kind,
+                  rtpParameters,
+                  appData: { type: "screen" },
+                },
+                (res: { id?: string; error?: string }) => {
+                  if (res?.error || !res.id) {
+                    errback(new Error(res?.error || "Produce screen failed"));
+                  } else {
+                    callback({ id: res.id });
+                  }
+                }
+              );
+            }
+          );
+
+          sendTransportRef.current = transport;
+          resolve(transport);
+        }
+      );
+    });
+  }, [socket]);
+
+  const startScreenShare = useCallback(async () => {
+    if (!socket) return;
+
+    try {
+      if (screenShareProducerRef.current) {
+        screenShareProducerRef.current.close();
+        screenShareProducerRef.current = null;
+      }
+
+      if (screenSendTransportRef.current) {
+        screenSendTransportRef.current.close();
+        screenSendTransportRef.current = null;
+      }
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      });
+
+      const screenTrack = stream.getVideoTracks()[0];
+      if (!screenTrack) throw new Error("No video track for screen");
+
+      screenTrack.onended = () => stopScreenShare();
+
+      const screenTransport = await createScreenSendTransport();
+      if (!screenTransport)
+        throw new Error("Failed to create screen transport");
+
+      const screenProducer = await screenTransport.produce({
+        track: screenTrack,
+        appData: { type: "screen" },
+      });
+
+      screenShareProducerRef.current = screenProducer;
+      setIsScreenSharing(true);
+
+      socket.emit(
+        "startScreenShare",
+        {
+          transportId: screenTransport.id,
+          rtpParameters: screenProducer.rtpParameters,
+        },
+        (response: { id?: string; error?: string; codecOptions?: any }) => {
+          if (response.error) {
+            console.error("Error starting screen share:", response.error);
+            toast.error(response.error);
+            stopScreenShare();
+          } else {
+            console.log("Screen share started successfully:", response.id);
+            setIsScreenSharing(true);
+          }
+        }
+      );
+
+      console.log("Screen share producer created:", screenProducer.id);
+    } catch (err) {
+      console.error("Error starting screen share:", err);
+      toast.error((err as Error).message);
+    }
+  }, [createScreenSendTransport, socket]);
+
+  const stopScreenShare = useCallback(() => {
+    if (screenShareProducerRef.current) {
+      screenShareProducerRef.current.close();
+      screenShareProducerRef.current = null;
+    }
+
+    setIsScreenSharing(false);
+
+    if (socket) {
+      socket.emit(
+        "stopScreenShare",
+        {},
+        (response: { stopped?: boolean; error?: string }) => {
+          if (response?.error) {
+            console.error("Error stopping screen share:", response.error);
+            toast.error(response.error);
+          } else {
+            console.log("Screen share stopped successfully");
+          }
+        }
+      );
+    }
+  }, [socket]);
+
   return {
     joinRoom,
     loadDevice,
@@ -339,6 +486,9 @@ export function useMediasoupClient() {
     createRecvTransport,
     produce,
     consume,
+    startScreenShare,
+    stopScreenShare,
+    isScreenSharing,
     localStream,
     setLocalStream,
     remoteStreams,

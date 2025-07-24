@@ -1,9 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@call/ui/components/button";
-import { useScreenShare } from "@/hooks/use-screenshare";
-import { Transport } from "mediasoup-client/types";
-import { toast } from "sonner";
 import { useSocket } from "@/components/providers/socket";
+import { Button } from "@call/ui/components/button";
 import {
   CameraIcon,
   CameraOffIcon,
@@ -12,88 +8,85 @@ import {
   MonitorOff,
   MonitorUp,
   PhoneIcon,
-  Share2Icon,
 } from "lucide-react";
+import { Transport } from "mediasoup-client/types";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface MediaControlsProps {
   localStream: MediaStream | null;
   sendTransport?: Transport;
+  startScreenShare?: () => Promise<void> | null;
+  stopScreenShare?: () => void;
+  isScreenSharing?: boolean;
   handleLeaveRoom: () => void;
 }
 
-const MediaControls = ({
+export default function MediaControls({
   localStream,
   sendTransport,
+  startScreenShare,
+  stopScreenShare,
+  isScreenSharing,
   handleLeaveRoom,
-}: MediaControlsProps) => {
+}: MediaControlsProps) {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
-  const { socket, connected } = useSocket();
   const localStreamRef = useRef<MediaStream | null>(null);
 
-  const {
-    isScreenSharing,
-    startScreenShare,
-    stopScreenShare,
-    error: screenShareError,
-  } = useScreenShare();
+  const { socket, connected } = useSocket();
 
   useEffect(() => {
     localStreamRef.current = localStream;
   }, [localStream]);
 
-  useEffect(() => {
-    if (screenShareError) {
-      console.error("Screen share error:", screenShareError);
-      toast.error(screenShareError, {
-        description: "Please try again or use a different window/application",
-        duration: 5000,
-      });
-    }
-  }, [screenShareError]);
+  const updateSocketState = (cam = isCameraOn, mic = isMicOn) => {
+    if (!socket || !connected) return;
+    socket.emit("updateUser", {
+      userId: socket.id,
+      micActive: mic,
+      camActive: cam,
+      isShareScreen: isScreenSharing,
+    });
+  };
 
   const toggleCamera = () => {
-    if (!connected || !socket) return;
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((track) => {
-        track.enabled = !isCameraOn;
-      });
-      setIsCameraOn((prev) => !prev);
-      socket.emit("updateUser", {
-        userId: socket.id,
-        micActive: isMicOn,
-        camActive: !isCameraOn,
-        isShareScreen: isScreenSharing,
-      });
-    }
+    if (!localStreamRef.current) return;
+
+    localStreamRef.current.getVideoTracks().forEach((track) => {
+      track.enabled = !isCameraOn;
+    });
+    const newCamState = !isCameraOn;
+    setIsCameraOn(newCamState);
+    updateSocketState(newCamState, isMicOn);
   };
 
   const toggleMic = () => {
-    if (!connected || !socket) return;
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !isMicOn;
-      });
-      setIsMicOn((prev) => !prev);
-      socket.emit("updateUser", {
-        userId: socket.id,
-        micActive: !isMicOn,
-        camActive: isCameraOn,
-        isShareScreen: isScreenSharing,
-      });
-    }
+    if (!localStreamRef.current) return;
+
+    localStreamRef.current.getAudioTracks().forEach((track) => {
+      track.enabled = !isMicOn;
+    });
+    const newMicState = !isMicOn;
+    setIsMicOn(newMicState);
+    updateSocketState(isCameraOn, newMicState);
   };
 
   const handleScreenShare = async () => {
-    if (!sendTransport) {
-      console.error("Send transport not available");
+    if (!startScreenShare || !stopScreenShare) {
+      console.warn("Screen share functions not available");
       return;
     }
 
     if (isScreenSharing) {
       stopScreenShare();
     } else {
-      await startScreenShare(sendTransport);
+      try {
+        await startScreenShare();
+      } catch (err) {
+        console.error("Error starting screen share:", err);
+        toast.error("Failed to start screen sharing");
+      }
     }
   };
 
@@ -126,11 +119,9 @@ const MediaControls = ({
         <Button
           variant={isScreenSharing ? "destructive" : "default"}
           onClick={handleScreenShare}
-          disabled={!sendTransport}
+          disabled={!startScreenShare || !stopScreenShare}
           className={
-            isScreenSharing
-              ? "bg-destructive hover:bg-destructive/90 relative"
-              : "relative"
+            isScreenSharing ? "bg-destructive hover:bg-destructive/90" : ""
           }
           size="icon"
         >
@@ -146,6 +137,4 @@ const MediaControls = ({
       </div>
     </div>
   );
-};
-
-export default MediaControls;
+}

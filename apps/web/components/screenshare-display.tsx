@@ -60,7 +60,7 @@ const ScreenShareDisplay = ({ streams, onSelect }: ScreenShareDisplayProps) => {
           ref={videoRef}
           autoPlay
           playsInline
-          className="h-[480px] w-full object-contain"
+          className="h-[504px] w-full object-contain"
         />
         {selectedUserId && (
           <div className="absolute bottom-4 left-4 rounded-md bg-blue-500/70 px-3 py-1.5 text-white">
@@ -93,7 +93,7 @@ const ScreenShareDisplay = ({ streams, onSelect }: ScreenShareDisplayProps) => {
                   autoPlay
                   playsInline
                   muted
-                  className="h-[90px] w-[160px] rounded object-cover"
+                  className="h-[120px] w-[213px] rounded object-cover"
                 />
                 <div className="absolute bottom-1 left-1 right-1 truncate rounded bg-black/60 px-1 py-0.5 text-xs text-white">
                   {userId}

@@ -6,10 +6,11 @@ import { useRoom } from "@/components/providers/room";
 import { useSession } from "@/components/providers/session";
 import { useUsers } from "@/components/providers/users";
 import SetUp from "@/components/rooms/set-up";
+import ScreenShareDisplay from "@/components/screenshare-display";
 import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
 import { useScreenShare } from "@/hooks/use-screenshare";
-import { Users2 } from "lucide-react";
+import { Loader, Users2 } from "lucide-react";
 import type { Device } from "mediasoup-client";
 import type { AppData, Transport } from "mediasoup-client/types";
 import { useRouter } from "next/navigation";
@@ -30,6 +31,9 @@ const RoomPage = () => {
     socket,
     consume,
     deviceRef,
+    startScreenShare,
+    stopScreenShare,
+    isScreenSharing,
   } = useMediasoupClient();
 
   const {
@@ -67,7 +71,7 @@ const RoomPage = () => {
     }: {
       producerId: string;
       userId: string;
-      kind: "audio" | "video";
+      kind: "audio" | "video" | "screen";
       device: Device;
     }) => {
       if (consumedProducersRef.current.has(producerId)) return;
@@ -115,6 +119,14 @@ const RoomPage = () => {
   const [screenShares, setScreenShares] = useState<Record<string, MediaStream>>(
     {}
   );
+
+  useEffect(() => {
+    return () => {
+      if (sendTransport) {
+        sendTransport.close();
+      }
+    };
+  }, [sendTransport]);
 
   useEffect(() => {
     if (!socket || !joined) return;
@@ -240,6 +252,7 @@ const RoomPage = () => {
       const mediasoupDevice = await loadDevice(rtpCapabilities as any);
       const transport = await createSendTransport();
       setSendTransport(transport as Transport);
+
       await createRecvTransport();
 
       console.log("localStreamRef.current", localStreamRef.current);
@@ -291,13 +304,22 @@ const RoomPage = () => {
   const handleLeaveRoom = () => {
     if (!socket) return;
 
+    if (sendTransport) {
+      sendTransport.close();
+    }
+
     socket.emit("leaveRoom");
     setJoined(false);
     window.location.reload();
     router.push("/r");
   };
 
-  if (!room) return <div>Loading...</div>;
+  if (!room)
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader className="size-6 animate-spin" />
+      </div>
+    );
 
   return (
     <>
@@ -312,7 +334,13 @@ const RoomPage = () => {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4">
+            {Object.keys(screenShares).length > 0 && (
+              <div className="mb-4 w-full">
+                <ScreenShareDisplay streams={screenShares} />
+              </div>
+            )}
+
             <div className="mt-4 grid grid-cols-2 gap-4">
               {localStreamRef.current && (
                 <Player stream={localStreamRef.current} name="You" you />
@@ -339,6 +367,9 @@ const RoomPage = () => {
             <MediaControls
               localStream={localStreamRef.current}
               sendTransport={sendTransport as Transport<AppData>}
+              startScreenShare={startScreenShare}
+              stopScreenShare={stopScreenShare}
+              isScreenSharing={isScreenSharing}
               handleLeaveRoom={handleLeaveRoom}
             />
           )}

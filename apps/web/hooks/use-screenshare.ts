@@ -11,8 +11,46 @@ export function useScreenShare() {
     useState<MediaStream | null>(null);
   const screenShareProducerRef = useRef<Producer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isStartingScreenShare, setIsStartingScreenShare] = useState(false);
 
   const networkStats = useNetworkMonitor();
+
+  const stopScreenShare = useCallback(() => {
+    if (!socket || !connected) {
+      setError("Socket not connected");
+      return;
+    }
+
+    try {
+      if (screenShareProducerRef.current) {
+        screenShareProducerRef.current.close();
+
+        socket.emit(
+          "stopScreenShare",
+          {},
+          (response: { stopped?: boolean; error?: string }) => {
+            if (response.error) {
+              console.error("Error stopping screen share:", response.error);
+            } else {
+              console.log("Screen share stopped successfully");
+            }
+          }
+        );
+      }
+
+      if (screenShareStream) {
+        screenShareStream.getTracks().forEach((track) => track.stop());
+      }
+
+      setScreenShareStream(null);
+      screenShareProducerRef.current = null;
+      setIsScreenSharing(false);
+      setError(null);
+    } catch (error) {
+      console.error("Error stopping screen share:", error);
+      setError(`Failed to stop screen sharing: ${(error as Error).message}`);
+    }
+  }, [socket, connected, screenShareStream]);
 
   const startScreenShare = useCallback(
     async (sendTransport: Transport) => {
@@ -20,6 +58,19 @@ export function useScreenShare() {
         setError("Socket not connected");
         return null;
       }
+
+      if (isScreenSharing || screenShareProducerRef.current) {
+        console.log("Screen share already active, stopping first");
+        stopScreenShare();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      if (isStartingScreenShare) {
+        console.log("Screen share already starting, ignoring request");
+        return null;
+      }
+
+      setIsStartingScreenShare(true);
 
       try {
         setError(null);
@@ -98,27 +149,7 @@ export function useScreenShare() {
         });
 
         screenShareProducerRef.current = screenShareProducer;
-
-        console.log("screenShareProducer", screenShareProducer);
-
-        socket.emit(
-          "startScreenShare",
-          {
-            transportId: sendTransport.id,
-            rtpParameters: screenShareProducer.rtpParameters,
-          },
-          (response: { id?: string; error?: string; codecOptions?: any }) => {
-            if (response.error) {
-              console.error("Error starting screen share:", response.error);
-              setError(response.error);
-              stopScreenShare();
-            } else {
-              console.log("Screen share started successfully:", response.id);
-              setIsScreenSharing(true);
-            }
-          }
-        );
-
+        setIsScreenSharing(true);
         return screenShareProducer;
       } catch (error) {
         console.log("error", error);
@@ -132,54 +163,13 @@ export function useScreenShare() {
           );
         }
         return null;
+      } finally {
+        setIsStartingScreenShare(false);
       }
     },
-    [socket, connected]
+    [socket, connected, isScreenSharing, stopScreenShare, isStartingScreenShare]
   );
 
-  // Stop screen sharing
-  const stopScreenShare = useCallback(() => {
-    if (!socket || !connected) {
-      setError("Socket not connected");
-      return;
-    }
-
-    try {
-      // Close the screen share producer if it exists
-      if (screenShareProducerRef.current) {
-        screenShareProducerRef.current.close();
-
-        // Notify the server that screen sharing has stopped
-        socket.emit(
-          "stopScreenShare",
-          {},
-          (response: { stopped?: boolean; error?: string }) => {
-            if (response.error) {
-              console.error("Error stopping screen share:", response.error);
-            } else {
-              console.log("Screen share stopped successfully");
-            }
-          }
-        );
-      }
-
-      // Stop all tracks in the screen share stream
-      if (screenShareStream) {
-        screenShareStream.getTracks().forEach((track) => track.stop());
-      }
-
-      // Reset state
-      setScreenShareStream(null);
-      screenShareProducerRef.current = null;
-      setIsScreenSharing(false);
-      setError(null);
-    } catch (error) {
-      console.error("Error stopping screen share:", error);
-      setError(`Failed to stop screen sharing: ${(error as Error).message}`);
-    }
-  }, [socket, connected, screenShareStream]);
-
-  // Get active screen shares in the room
   const getActiveScreenShares = useCallback(() => {
     return new Promise<
       Array<{ userId: string; producerId: string; kind: string; appData: any }>
@@ -207,7 +197,6 @@ export function useScreenShare() {
     });
   }, [socket, connected]);
 
-  // Listen for new screen shares
   const onNewScreenShare = useCallback(
     (
       callback: (data: {
@@ -226,7 +215,6 @@ export function useScreenShare() {
     [socket]
   );
 
-  // Listen for screen share stopped events
   const onScreenShareStopped = useCallback(
     (callback: (data: { userId: string }) => void) => {
       if (!socket) return () => {};
@@ -239,10 +227,8 @@ export function useScreenShare() {
     [socket]
   );
 
-  // Monitor network conditions and adapt screen share quality
   useEffect(() => {
     if (isScreenSharing && screenShareProducerRef.current) {
-      // Adapt quality based on network conditions
       const producer = screenShareProducerRef.current;
 
       console.log("Network quality changed:", networkStats.quality);
@@ -280,10 +266,30 @@ export function useScreenShare() {
     }
   }, [networkStats.quality, isScreenSharing]);
 
+  useEffect(() => {
+    return () => {
+      if (screenShareProducerRef.current) {
+        console.log("Cleaning up screen share producer on unmount");
+        try {
+          screenShareProducerRef.current.close();
+        } catch (error) {
+          console.error(
+            "Error closing screen share producer on unmount:",
+            error
+          );
+        }
+      }
+      if (screenShareStream) {
+        screenShareStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [screenShareStream]);
+
   return {
     isScreenSharing,
     screenShareStream,
     error,
+    isStartingScreenShare,
     startScreenShare,
     stopScreenShare,
     getActiveScreenShares,

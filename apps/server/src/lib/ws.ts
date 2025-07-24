@@ -147,8 +147,9 @@ const socketIoConnection = async (io: SocketIOServer) => {
         }
 
         const producers = currentRoom.getProducers();
+        const screenShares = currentRoom.getScreenShareProducers();
         const users = currentRoom.getUsers();
-        callback({ producers, users });
+        callback({ producers, users, screenShares });
       } catch (error) {
         console.error("Error joining room:", error);
         callback({ error: "Failed to join room" });
@@ -176,7 +177,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
 
     socket.on(
       "produce",
-      async ({ transportId, kind, rtpParameters }, callback) => {
+      async ({ transportId, kind, rtpParameters, appData }, callback) => {
         if (!currentRoom) return callback({ error: "No room joined" });
         const peer = currentRoom.getPeer(peerId);
         const transport = peer?.transports.find((t) => t.id === transportId);
@@ -189,6 +190,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
           {
             producerId: producer.id,
             transportId,
+            appData,
           }
         );
 
@@ -196,7 +198,16 @@ const socketIoConnection = async (io: SocketIOServer) => {
           producerId: producer.id,
           userId: peerId,
           kind,
+          appData,
         });
+
+        if (appData?.type === "screen") {
+          socket.to(currentRoom.id).emit("newScreenShare", {
+            producerId: producer.id,
+            userId: peerId,
+            appData,
+          });
+        }
 
         console.log(
           `[Room ${currentRoom.id}] Notified other peers about new producer`,
@@ -204,6 +215,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
             producerId: producer.id,
             userId: peerId,
             kind,
+            appData,
           }
         );
 
@@ -435,66 +447,6 @@ const socketIoConnection = async (io: SocketIOServer) => {
         if (callback) callback({ success: true });
       }
     );
-
-    socket.on(
-      "startScreenShare",
-      async ({ transportId, rtpParameters }, callback) => {
-        console.log("startScreenShare", {
-          transportId,
-          rtpParameters,
-          currentRoom,
-        });
-        if (!currentRoom) return callback({ error: "No room joined" });
-        const peer = currentRoom.getPeer(peerId);
-        const transport = peer?.transports.find((t) => t.id === transportId);
-
-        if (!transport) return callback({ error: "Transport not found" });
-
-        try {
-          const enhancedRtpParameters = {
-            ...rtpParameters,
-            encodings:
-              rtpParameters.encodings ||
-              config.mediasoup.screenSharing.encodings,
-          };
-
-          const screenShareProducer = await transport.produce({
-            kind: "video",
-            rtpParameters: enhancedRtpParameters,
-            appData: {
-              mediaType: "screenShare",
-              peerId,
-              codecOptions: config.mediasoup.screenSharing.codecOptions,
-            },
-          });
-
-          currentRoom.addScreenShareProducer(peerId, screenShareProducer);
-
-          console.log(
-            `[Room ${currentRoom.id}] Peer ${peerId} started screen sharing`,
-            {
-              producerId: screenShareProducer.id,
-              encodings: enhancedRtpParameters.encodings,
-            }
-          );
-
-          socket.to(currentRoom.id).emit("newScreenShare", {
-            producerId: screenShareProducer.id,
-            userId: peerId,
-            appData: { mediaType: "screenShare" },
-          });
-
-          callback({
-            id: screenShareProducer.id,
-            codecOptions: config.mediasoup.screenSharing.codecOptions,
-          });
-        } catch (error) {
-          console.error("Error starting screen share:", error);
-          callback({ error: "Could not start screen sharing" });
-        }
-      }
-    );
-
     socket.on("stopScreenShare", async (data, callback) => {
       if (!currentRoom) return callback({ error: "No room joined" });
       const peer = currentRoom.getPeer(peerId);
