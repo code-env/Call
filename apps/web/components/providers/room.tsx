@@ -16,12 +16,12 @@ export const RoomProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const roomId = pathname.split("/")[2];
 
-  const { data: room } = useQuery({
+  const { data } = useQuery({
     queryKey: ["room"],
     queryFn: () => ROOM_QUERY.getRoom(roomId!),
   });
 
-  console.log(room);
+  const room = data?.room;
 
   return (
     <RoomContext.Provider value={{ room }}>{children}</RoomContext.Provider>

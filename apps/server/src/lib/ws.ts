@@ -23,9 +23,17 @@ const socketIoConnection = async (io: SocketIOServer) => {
   console.log(chalk.blue("🔧 Initializing Socket.IO connection handlers..."));
 
   if (!mediasoupWorker) {
-    console.log(chalk.yellow("🔄 Creating mediasoup worker..."));
-    mediasoupWorker = getMediasoupWorker();
-    console.log(chalk.green("✅ Mediasoup worker created"));
+    console.log(chalk.yellow("🔄 Getting mediasoup worker..."));
+    try {
+      mediasoupWorker = getMediasoupWorker();
+      if (!mediasoupWorker) {
+        throw new Error("No mediasoup worker available");
+      }
+      console.log(chalk.green("✅ Mediasoup worker obtained"));
+    } catch (error) {
+      console.error(chalk.red("❌ Failed to get mediasoup worker:"), error);
+      throw error;
+    }
   }
 
   io.use((socket, next) => {
@@ -49,33 +57,34 @@ const socketIoConnection = async (io: SocketIOServer) => {
     let currentRoom: Room | undefined;
     let peerId = socket.id;
 
-    // socket.on("createRoom", async ({ roomId }, callback) => {
-    //   try {
-    //     const dbRoom = await db
-    //       .select()
-    //       .from(roomTable)
-    //       .where(eq(roomTable.id, roomId))
-    //       .limit(1);
+    socket.on("createRoom", async ({ roomId }, callback) => {
+      try {
+        const dbRoom = await db
+          .select()
+          .from(roomTable)
+          .where(eq(roomTable.id, roomId))
+          .limit(1);
 
-    //     if (dbRoom.length === 0) {
-    //       return callback({ error: "Room not found in database" });
-    //     }
+        if (dbRoom.length === 0) {
+          return callback({ error: "Room not found in database" });
+        }
+        if (!rooms.has(roomId)) {
+          if (!mediasoupWorker) {
+            return callback({ error: "Mediasoup worker not initialized" });
+          }
+          const router = await mediasoupWorker.createRouter({
+            mediaCodecs: config.mediasoup.router.mediaCodecs,
+          });
+          const room = new Room(roomId, router);
+          rooms.set(roomId, room);
+        }
 
-    //     // Create mediasoup room if it doesn't exist
-    //     if (!rooms.has(roomId)) {
-    //       const router = await mediasoupWorker.createRouter({
-    //         mediaCodecs: config.mediasoup.router.mediaCodecs,
-    //       });
-    //       const room = new Room(roomId, router);
-    //       rooms.set(roomId, room);
-    //     }
-
-    //     callback({ roomId });
-    //   } catch (error) {
-    //     console.error("Error creating room:", error);
-    //     callback({ error: "Failed to create room" });
-    //   }
-    // });
+        callback({ roomId });
+      } catch (error) {
+        console.error("Error creating room:", error);
+        callback({ error: "Failed to create room" });
+      }
+    });
 
     socket.on("joinRoom", async ({ roomId, token, userId }, callback) => {
       if (token !== AUTH_TOKEN) return callback({ error: "Invalid token" });
@@ -91,9 +100,13 @@ const socketIoConnection = async (io: SocketIOServer) => {
           return callback({ error: "Room not found" });
         }
 
-        // Create or get mediasoup room
         let room = rooms.get(roomId);
+        console.log("room", room);
+
         if (!room) {
+          if (!mediasoupWorker) {
+            return callback({ error: "Mediasoup worker not initialized" });
+          }
           const router = await mediasoupWorker.createRouter({
             mediaCodecs: config.mediasoup.router.mediaCodecs,
           });
@@ -524,11 +537,10 @@ const socketIoConnection = async (io: SocketIOServer) => {
       callback(screenShares);
     });
 
-    socket.on("getUsersInRoom", async (data, callback) => {
-      if (!currentRoom) return callback([]);
+    socket.on("getUsersInRoom", async ({ roomId }, callback) => {
+      if (!currentRoom || currentRoom.id !== roomId) return callback([]);
 
       try {
-        // Get users from database
         const roomUsers = await db
           .select({
             userId: roomUserTable.userId,
@@ -539,13 +551,14 @@ const socketIoConnection = async (io: SocketIOServer) => {
           .from(roomUserTable)
           .where(eq(roomUserTable.roomId, currentRoom.id));
 
-        // Map to expected format
         const users = roomUsers.map((u) => ({
           userId: u.userId,
           micActive: u.isMicActive,
           camActive: u.isCamActive,
           isShareScreen: u.isShareScreen,
         }));
+
+        console.log("users in room: ", { users });
 
         console.log(`[Room ${currentRoom.id}] Users in room:`, users);
         callback(users);

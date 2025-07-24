@@ -3,7 +3,7 @@ import { createRoomSchema } from "@/validators";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { db } from "@call/db";
-import { room as roomTable } from "@call/db/schema";
+import { room as roomTable, roomUser as roomUserTable } from "@call/db/schema";
 import { createId } from "@paralleldrive/cuid2";
 import { eq } from "drizzle-orm";
 import type { ReqVariables } from "../../index.js";
@@ -115,7 +115,6 @@ roomRouter.get("/join/:joinCode", async (c: Context) => {
   }
 });
 
-// Get room by ID
 roomRouter.get("/:roomId", async (c: Context) => {
   try {
     const { roomId } = c.req.param();
@@ -148,6 +147,24 @@ roomRouter.get("/:roomId", async (c: Context) => {
       500
     );
   }
+});
+
+roomRouter.get("/:roomId/users", async (c: Context) => {
+  const { roomId } = c.req.param();
+
+  if (!roomId) {
+    return c.json({ message: "Room ID is required" }, 400);
+  }
+
+  const users = await db
+    .select()
+    .from(roomUserTable)
+    .where(eq(roomUserTable.roomId, roomId));
+
+  return c.json({
+    success: true,
+    users,
+  });
 });
 
 export default roomRouter;

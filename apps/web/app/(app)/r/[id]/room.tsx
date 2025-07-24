@@ -1,49 +1,62 @@
 "use client";
 
+import MediaControls from "@/components/media-controls";
+import Player from "@/components/player";
 import { useRoom } from "@/components/providers/room";
+import { useSession } from "@/components/providers/session";
 import { useUsers } from "@/components/providers/users";
 import SetUp from "@/components/rooms/set-up";
+import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
 import { useScreenShare } from "@/hooks/use-screenshare";
+import { Users2 } from "lucide-react";
 import type { Device } from "mediasoup-client";
-import type { Transport } from "mediasoup-client/types";
+import type { AppData, Transport } from "mediasoup-client/types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const RoomPage = () => {
   const router = useRouter();
-  const { users } = useUsers();
   const { room } = useRoom();
-
+  const { users } = useUsers();
+  const { user: currentUser } = useSession();
   const {
     joinRoom,
     loadDevice,
     createSendTransport,
     createRecvTransport,
     produce,
-    localStream,
-    setLocalStream,
-    connected,
     socket,
     consume,
     deviceRef,
   } = useMediasoupClient();
 
+  const {
+    localStreamRef,
+    videoRef,
+    cameraEnabled,
+    micEnabled,
+    toggleCamera,
+    toggleMic,
+    loadMediaDevices,
+  } = useMediaControl();
+
   const { onNewScreenShare, onScreenShareStopped } = useScreenShare();
 
-  const [roomId, setRoomId] = useState(room?.id ?? "");
   const [joined, setJoined] = useState(false);
-  const [roomData, setRoomData] = useState<any>(null);
-  const [userId, setUserId] = useState<string>("");
   const consumedProducersRef = useRef<Set<string>>(new Set());
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
   >({});
 
-  // Generate a temporary user ID for demo purposes
   useEffect(() => {
-    setUserId(`user-${Math.random().toString(36).substr(2, 9)}`);
+    const initializeMedia = async () => {
+      await loadMediaDevices({ audio: true, video: true });
+    };
+    initializeMedia();
+
+    console.log("localStreamRef.current", localStreamRef.current);
   }, []);
 
   const consumeAndAddTrack = useCallback(
@@ -213,47 +226,27 @@ const RoomPage = () => {
   ]);
 
   const handleJoin = async () => {
-    if (!roomId || !socket || !userId) return;
+    if (!socket || !currentUser || !room) return;
 
     try {
-      const roomResponse = await fetch(`/api/rooms/${roomId}`);
-
-      if (!roomResponse.ok) {
-        const createResponse = await fetch("/api/rooms/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: `Room ${roomId}` }),
-        });
-
-        if (!createResponse.ok) {
-          throw new Error("Failed to create room");
-        }
-
-        const { room } = await createResponse.json();
-        setRoomId(room.id);
-        setRoomData(room);
-      } else {
-        const { room } = await roomResponse.json();
-        setRoomData(room);
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true,
-      });
-      setLocalStream?.(stream);
-
-      const { producers: existingProducers } = await joinRoom(roomId, userId);
+      const { producers: existingProducers } = await joinRoom(
+        room.id,
+        currentUser.id
+      );
 
       const rtpCapabilities = await new Promise((resolve) => {
         socket.emit("getRouterRtpCapabilities", {}, resolve);
       });
-
       const mediasoupDevice = await loadDevice(rtpCapabilities as any);
       const transport = await createSendTransport();
       setSendTransport(transport as Transport);
       await createRecvTransport();
-      await produce(stream);
+
+      console.log("localStreamRef.current", localStreamRef.current);
+
+      if (!localStreamRef.current) throw new Error("Local stream not found");
+
+      await produce(localStreamRef.current);
 
       setJoined(true);
 
@@ -301,7 +294,7 @@ const RoomPage = () => {
     socket.emit("leaveRoom");
     setJoined(false);
     window.location.reload();
-    router.push("/");
+    router.push("/r");
   };
 
   if (!room) return <div>Loading...</div>;
@@ -309,10 +302,57 @@ const RoomPage = () => {
   return (
     <>
       {joined ? (
-        <div className="flex min-h-screen w-full flex-col items-center justify-center"></div>
+        <div className="flex min-h-screen w-full flex-col">
+          <header className="h-16 border-b px-10">
+            <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between">
+              <h1 className="text-2xl font-bold">{room.name}</h1>
+              <div className="flex items-center gap-2">
+                <Users2 className="size-6" />
+                <span className="text-xl font-medium">{users.length}</span>
+              </div>
+            </div>
+          </header>
+          <div className="flex flex-1 items-center justify-center">
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              {localStreamRef.current && (
+                <Player stream={localStreamRef.current} name="You" you />
+              )}
+              {Object.entries(remoteStreams).map(([userId, stream]) => {
+                const user = users.find((u) => u.id === userId);
+
+                return (
+                  <Player
+                    key={userId}
+                    stream={stream}
+                    name={`User ${userId}`}
+                    micActive={user?.micActive}
+                    camActive={user?.camActive}
+                    isShareScreen={user?.isShareScreen}
+                    you={false}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {joined && localStreamRef.current && (
+            <MediaControls
+              localStream={localStreamRef.current}
+              sendTransport={sendTransport as Transport<AppData>}
+              handleLeaveRoom={handleLeaveRoom}
+            />
+          )}
+        </div>
       ) : (
         <div>
-          <SetUp onJoin={handleJoin} />
+          <SetUp
+            onJoin={handleJoin}
+            cameraEnabled={cameraEnabled}
+            micEnabled={micEnabled}
+            toggleCamera={toggleCamera}
+            toggleMic={toggleMic}
+            videoRef={videoRef as React.RefObject<HTMLVideoElement>}
+          />
         </div>
       )}
     </>

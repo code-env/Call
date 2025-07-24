@@ -4,13 +4,28 @@ import { useScreenShare } from "@/hooks/use-screenshare";
 import { Transport } from "mediasoup-client/types";
 import { toast } from "sonner";
 import { useSocket } from "@/components/providers/socket";
+import {
+  CameraIcon,
+  CameraOffIcon,
+  MicIcon,
+  MicOffIcon,
+  MonitorOff,
+  MonitorUp,
+  PhoneIcon,
+  Share2Icon,
+} from "lucide-react";
 
 interface MediaControlsProps {
   localStream: MediaStream | null;
   sendTransport?: Transport;
+  handleLeaveRoom: () => void;
 }
 
-const MediaControls = ({ localStream, sendTransport }: MediaControlsProps) => {
+const MediaControls = ({
+  localStream,
+  sendTransport,
+  handleLeaveRoom,
+}: MediaControlsProps) => {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const { socket, connected } = useSocket();
@@ -83,33 +98,52 @@ const MediaControls = ({ localStream, sendTransport }: MediaControlsProps) => {
   };
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 gap-4 rounded-lg">
-      <Button
-        variant={isCameraOn ? "default" : "outline"}
-        onClick={toggleCamera}
-      >
-        {isCameraOn ? "Turn Camera Off" : "Turn Camera On"}
-      </Button>
-      <Button variant={isMicOn ? "default" : "outline"} onClick={toggleMic}>
-        {isMicOn ? "Mute Mic" : "Unmute Mic"}
-      </Button>
-      <Button
-        variant={isScreenSharing ? "destructive" : "default"}
-        onClick={handleScreenShare}
-        disabled={!sendTransport}
-        className={
-          isScreenSharing ? "relative bg-red-500 hover:bg-red-600" : "relative"
-        }
-      >
-        {isScreenSharing ? (
-          <>
-            <span className="absolute -right-2 -top-2 h-3 w-3 animate-pulse rounded-full bg-red-500"></span>
-            Stop Sharing
-          </>
-        ) : (
-          "Share Screen"
-        )}
-      </Button>
+    <div className="fixed bottom-0 flex h-16 w-full items-center justify-center gap-4 p-4">
+      <div className="absolute -top-1 h-px w-full bg-[linear-gradient(to_right,var(--background),var(--muted)_200px,var(--muted)_calc(100%-200px),var(--background))]" />
+      <div className="flex items-center gap-4">
+        <Button
+          variant={isCameraOn ? "default" : "outline"}
+          onClick={toggleCamera}
+          size="icon"
+        >
+          {isCameraOn ? (
+            <CameraOffIcon className="h-4 w-4" />
+          ) : (
+            <CameraIcon className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant={isMicOn ? "default" : "outline"}
+          onClick={toggleMic}
+          size="icon"
+        >
+          {isMicOn ? (
+            <MicOffIcon className="h-4 w-4" />
+          ) : (
+            <MicIcon className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant={isScreenSharing ? "destructive" : "default"}
+          onClick={handleScreenShare}
+          disabled={!sendTransport}
+          className={
+            isScreenSharing
+              ? "bg-destructive hover:bg-destructive/90 relative"
+              : "relative"
+          }
+          size="icon"
+        >
+          {isScreenSharing ? (
+            <MonitorOff className="h-4 w-4" />
+          ) : (
+            <MonitorUp className="h-4 w-4" />
+          )}
+        </Button>
+        <Button variant="destructive" size="icon" onClick={handleLeaveRoom}>
+          <PhoneIcon className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };

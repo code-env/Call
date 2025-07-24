@@ -1,5 +1,5 @@
-import { extractTokenFromUrl } from "./utils/extract-token.js";
-import { sendMail } from "./utils/send-mail.js";
+import { extractTokenFromUrl } from "./utils/extract-token";
+import { sendMail } from "./utils/send-mail";
 import { db } from "@call/db";
 import schema from "@call/db/schema";
 import { betterAuth } from "better-auth";
@@ -12,7 +12,9 @@ if (!process.env.FRONTEND_URL || !process.env.BACKEND_URL) {
 }
 
 if (!process.env.BETTER_AUTH_SECRET) {
-  throw new Error("Missing BETTER_AUTH_SECRET in environment variables. Please set it in your .env file.");
+  throw new Error(
+    "Missing BETTER_AUTH_SECRET in environment variables. Please set it in your .env file."
+  );
 }
 
 export const auth = betterAuth({

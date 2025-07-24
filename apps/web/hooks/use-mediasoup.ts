@@ -8,6 +8,8 @@ import type {
   RtpParameters,
 } from "mediasoup-client/types";
 import { useSocket } from "@/components/providers/socket";
+import { useRoom } from "@/components/providers/room";
+import { useUsers } from "@/components/providers/users";
 
 interface JoinResponse {
   producers: {
@@ -19,6 +21,8 @@ interface JoinResponse {
 
 export function useMediasoupClient() {
   const { socket, connected } = useSocket();
+  const { room } = useRoom();
+  const { setUsers } = useUsers();
   const deviceRef = useRef<Device | null>(null);
   const sendTransportRef = useRef<Transport | null>(null);
   const recvTransportRef = useRef<Transport | null>(null);
@@ -28,51 +32,68 @@ export function useMediasoupClient() {
   // Join or create a room
   const joinRoom = useCallback(
     async (roomId: string, userId?: string): Promise<JoinResponse> => {
-      if (!socket || !connected) {
+      if (!socket || !connected || !room) {
         console.error("Socket not connected");
         throw new Error("Socket not connected");
       }
 
-      console.log("Creating/joining room:", roomId);
+      console.log("Creating/joining room:", room.id);
 
       try {
-        // await new Promise<void>((resolve, reject) => {
-        //   socket.emit("createRoom", { roomId }, (response: any) => {
-        //     if (response.error) {
-        //       reject(new Error(response.error));
-        //     } else {
-        //       resolve();
-        //     }
-        //   });
-        // });
+        await new Promise<void>((resolve, reject) => {
+          if (room.id) {
+            socket.emit("createRoom", { roomId: room.id }, (response: any) => {
+              if (response.error) {
+                reject(new Error(response.error));
+              } else {
+                resolve();
+              }
+            });
+          } else {
+            reject(new Error("Room ID is not available"));
+          }
+        });
+
+        console.log("joining room", { roomId: room.id, userId });
 
         const responseData = await new Promise<JoinResponse>(
           (resolve, reject) => {
             socket.emit(
               "joinRoom",
-              { roomId, token: "demo-token", userId },
+              { roomId: room.id, token: "demo-token", userId },
               (response: any) => {
                 if (response.error) {
                   reject(new Error(response.error));
                 } else {
-                  console.log("------------------------");
-                  console.log(response);
-                  console.log("------------------------");
                   resolve(response);
                 }
               }
             );
           }
         );
+        socket.emit(
+          "getUsersInRoom",
+          { roomId: room.id },
+          (response: any[]) => {
+            const transformedUsers = response.map((user) => ({
+              id: user.userId,
+              name: user.userId,
+              micActive: user.micActive,
+              camActive: user.camActive,
+              isShareScreen: user.isShareScreen,
+            }));
+            setUsers(transformedUsers);
+          }
+        );
 
-        console.log("Successfully joined room:", roomId);
+        console.log("Successfully joined room:", room.id);
         return responseData;
       } catch (error) {
         console.error("Error joining room:", error);
         throw error;
       }
     },
-    [socket, connected]
+    [socket, connected, room]
   );
 
   // Load mediasoup device
@@ -196,7 +217,6 @@ export function useMediasoupClient() {
     });
   }, [socket]);
 
-  // Produce local media
   const produce = useCallback(async (stream: MediaStream) => {
     if (!sendTransportRef.current) {
       console.error("Send transport not ready");

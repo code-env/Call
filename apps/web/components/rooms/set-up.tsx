@@ -1,32 +1,26 @@
 "use client";
 
-import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { Badge } from "@call/ui/components/badge";
 import { Button } from "@call/ui/components/button";
 import { CameraIcon, MicIcon } from "lucide-react";
-import { useEffect } from "react";
 
 type SetUpProps = {
   onJoin: () => void;
+  cameraEnabled: boolean;
+  micEnabled: boolean;
+  toggleCamera: () => void;
+  toggleMic: () => void;
+  videoRef: React.RefObject<HTMLVideoElement>;
 };
 
-const SetUp = ({ onJoin }: SetUpProps) => {
-  const {
-    videoRef,
-    cameraEnabled,
-    micEnabled,
-    toggleCamera,
-    toggleMic,
-    loadMediaDevices,
-  } = useMediaControl();
-
-  useEffect(() => {
-    const initializeMedia = async () => {
-      await loadMediaDevices({ audio: true, video: true });
-    };
-    initializeMedia();
-  }, []);
-
+const SetUp = ({
+  onJoin,
+  cameraEnabled,
+  micEnabled,
+  toggleCamera,
+  toggleMic,
+  videoRef,
+}: SetUpProps) => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="flex w-full max-w-screen-lg flex-col items-center justify-center gap-4 p-4">

@@ -14,7 +14,6 @@ export const useMediaControl = () => {
     const stream = await navigator.mediaDevices.getUserMedia(params);
     localStreamRef.current = stream;
 
-    // Set the stream to the video element
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }

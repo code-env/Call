@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useRoom } from "./room";
 import { useSocket } from "./socket";
 
 type User = {
@@ -27,14 +28,17 @@ export const useUsers = () => {
 };
 
 export const UsersProvider = ({ children }: { children: React.ReactNode }) => {
-  const [users, setUsers] = useState<User[]>([]);
   const { socket } = useSocket();
+  const [users, setUsers] = useState<User[]>([]);
+  const { room } = useRoom();
+
+  console.log("users in room", { users, room });
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !room) return;
 
     const getUsersInRoom = () => {
-      socket.emit("getUsersInRoom", {}, (response: any[]) => {
+      socket.emit("getUsersInRoom", { roomId: room.id }, (response: any[]) => {
         const transformedUsers = response.map((user) => ({
           id: user.userId,
           name: user.userId,
