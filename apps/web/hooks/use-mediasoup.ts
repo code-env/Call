@@ -9,7 +9,7 @@ import type {
 } from "mediasoup-client/types";
 import { useSocket } from "@/components/providers/socket";
 import { useRoom } from "@/components/providers/room";
-import { useUsers } from "@/components/providers/users";
+import { useUsers, type User } from "@/components/providers/users";
 
 interface JoinResponse {
   producers: {
@@ -17,6 +17,7 @@ interface JoinResponse {
     userId: string;
     kind: "audio" | "video";
   }[];
+  users: User[];
 }
 
 export function useMediasoupClient() {
@@ -87,6 +88,7 @@ export function useMediasoupClient() {
         );
 
         console.log("Successfully joined room:", room.id);
+        setUsers(responseData.users);
         return responseData;
       } catch (error) {
         console.error("Error joining room:", error);

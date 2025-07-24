@@ -147,7 +147,8 @@ const socketIoConnection = async (io: SocketIOServer) => {
         }
 
         const producers = currentRoom.getProducers();
-        callback({ producers });
+        const users = currentRoom.getUsers();
+        callback({ producers, users });
       } catch (error) {
         console.error("Error joining room:", error);
         callback({ error: "Failed to join room" });
@@ -335,7 +336,6 @@ const socketIoConnection = async (io: SocketIOServer) => {
       currentRoom.removePeer(peerId);
       socket.to(currentRoom.id).emit("userLeft", { userId: peerId });
 
-      // Remove user from room_user table
       try {
         await db
           .delete(roomUserTable)
@@ -345,6 +345,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
               eq(roomUserTable.userId, peerId)
             )
           );
+        console.log(`User with id ${peerId} removed`);
       } catch (error) {
         console.error("Error removing user from room:", error);
       }
@@ -405,7 +406,6 @@ const socketIoConnection = async (io: SocketIOServer) => {
         user.camActive = camActive;
         user.isShareScreen = isShareScreen;
 
-        // Update user in database
         try {
           await db
             .update(roomUserTable)

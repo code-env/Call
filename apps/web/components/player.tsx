@@ -86,13 +86,13 @@ const Player = ({
         }`}
       />
       {audioStream && <audio ref={audioRef} autoPlay playsInline />}
-      {you ? null : camActive ? null : (
+      {/* {you ? null : camActive ? null : (
         <div className="absolute inset-0 z-50 flex h-full w-full items-center justify-center bg-black">
           <div className="bg-background/10 flex size-20 items-center justify-center rounded-full">
             <User className="size-10 text-white" />
           </div>
         </div>
-      )}
+      )} */}
       <div
         className={cn(
           "absolute bottom-0 left-0 flex w-full items-center justify-between px-2 py-1 text-sm text-white",
@@ -110,11 +110,6 @@ const Player = ({
                 <Mic className="size-4" />
               ) : (
                 <MicOff className="size-4" />
-              )}
-              {camActive ? (
-                <Camera className="size-4" />
-              ) : (
-                <CameraOff className="size-4" />
               )}
             </>
           )}

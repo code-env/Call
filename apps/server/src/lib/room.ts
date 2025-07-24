@@ -22,7 +22,10 @@ export interface RoomPeer {
 
 export class Room {
   public peers: Map<string, RoomPeer> = new Map();
-  constructor(public id: string, public router: Router) {}
+  constructor(
+    public id: string,
+    public router: Router
+  ) {}
 
   addPeer(peerId: string) {
     if (!this.peers.has(peerId)) {
@@ -92,5 +95,14 @@ export class Room {
 
   removePeer(peerId: string) {
     this.peers.delete(peerId);
+  }
+
+  getUsers() {
+    return Array.from(this.peers.values()).map((peer) => ({
+      userId: peer.id,
+      micActive: peer.micActive,
+      camActive: peer.camActive,
+      isShareScreen: peer.isShareScreen,
+    }));
   }
 }

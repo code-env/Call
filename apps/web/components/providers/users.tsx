@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRoom } from "./room";
 import { useSocket } from "./socket";
 
-type User = {
+export type User = {
   id: string;
   name: string;
   micActive: boolean;
@@ -30,72 +30,10 @@ export const useUsers = () => {
 export const UsersProvider = ({ children }: { children: React.ReactNode }) => {
   const { socket } = useSocket();
   const [users, setUsers] = useState<User[]>([]);
-  const { room } = useRoom();
-
-  console.log("users in room", { users, room });
 
   useEffect(() => {
-    if (!socket || !room) return;
-
-    const getUsersInRoom = () => {
-      socket.emit("getUsersInRoom", { roomId: room.id }, (response: any[]) => {
-        const transformedUsers = response.map((user) => ({
-          id: user.userId,
-          name: user.userId,
-          micActive: user.micActive,
-          camActive: user.camActive,
-          isShareScreen: user.isShareScreen,
-        }));
-        setUsers(transformedUsers);
-      });
-    };
-
-    getUsersInRoom();
-
-    const handleUserUpdated = (updatedUser: any) => {
-      setUsers((prevUsers) => {
-        const existingUserIndex = prevUsers.findIndex(
-          (u) => u.id === updatedUser.userId
-        );
-
-        if (existingUserIndex >= 0) {
-          const existingUser = prevUsers[existingUserIndex]!;
-          const updatedUsers = [...prevUsers];
-          updatedUsers[existingUserIndex] = {
-            id: existingUser.id,
-            name: existingUser.name,
-            micActive: updatedUser.micActive,
-            camActive: updatedUser.camActive,
-            isShareScreen: updatedUser.isShareScreen,
-          };
-          return updatedUsers;
-        } else {
-          return [
-            ...prevUsers,
-            {
-              id: updatedUser.userId,
-              name: updatedUser.userId,
-              micActive: updatedUser.micActive,
-              camActive: updatedUser.camActive,
-              isShareScreen: updatedUser.isShareScreen,
-            },
-          ];
-        }
-      });
-    };
-
-    const handleUserLeft = ({ userId }: { userId: string }) => {
-      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== userId));
-    };
-
-    socket.on("userUpdated", handleUserUpdated);
-    socket.on("userLeft", handleUserLeft);
-
-    return () => {
-      socket.off("userUpdated", handleUserUpdated);
-      socket.off("userLeft", handleUserLeft);
-    };
-  }, [socket]);
+    console.log("users", { users });
+  }, [users]);
 
   return (
     <UserContext.Provider value={{ users, setUsers }}>
