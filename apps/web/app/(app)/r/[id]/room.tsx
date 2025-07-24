@@ -48,7 +48,8 @@ const RoomPage = () => {
     loadMediaDevices,
   } = useMediaControl();
 
-  const { onNewScreenShare, onScreenShareStopped } = useScreenShare();
+  const { onNewScreenShare, onScreenShareStopped, screenShareStream } =
+    useScreenShare();
 
   const [joined, setJoined] = useState(false);
   const consumedProducersRef = useRef<Set<string>>(new Set());
@@ -343,6 +344,16 @@ const RoomPage = () => {
       });
     });
 
+    if (screenShareStream) {
+      list.push({
+        userId: "screen",
+        name: "Screen share",
+        stream: screenShareStream,
+        type: "screen",
+        isScreenSharing: true,
+      });
+    }
+
     Object.entries(screenShares).forEach(([userId, stream]) => {
       list.push({
         userId,
@@ -370,7 +381,7 @@ const RoomPage = () => {
       </div>
     );
 
-  console.log("participants", participants);
+  console.log("participants", participants, screenShareStream);
 
   return (
     <>

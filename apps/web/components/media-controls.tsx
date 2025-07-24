@@ -17,6 +17,9 @@ import { toast } from "sonner";
 interface MediaControlsProps {
   localStream: MediaStream | null;
   sendTransport?: Transport;
+  startScreenShare?: () => Promise<void> | null;
+  stopScreenShare?: () => void;
+  isScreenSharing?: boolean;
   handleLeaveRoom: () => void;
 }
 
@@ -69,11 +72,6 @@ export default function MediaControls({
   };
 
   const handleScreenShare = async () => {
-    if (!startScreenShare || !stopScreenShare) {
-      console.warn("Screen share functions not available");
-      return;
-    }
-
     if (isScreenSharing) {
       stopScreenShare();
     } else {

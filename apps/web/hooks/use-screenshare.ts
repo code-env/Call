@@ -8,11 +8,11 @@ import { toast } from "sonner";
 export function useScreenShare() {
   const { socket, connected } = useSocket();
   const { createScreenSendTransport, screenSendTransportRef } = useMediasoup();
+
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenShareStream, setScreenShareStream] =
     useState<MediaStream | null>(null);
   const screenShareProducerRef = useRef<Producer | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const networkStats = useNetworkMonitor();
 
@@ -78,59 +78,15 @@ export function useScreenShare() {
       });
 
       screenShareProducerRef.current = screenProducer;
+
       setScreenShareStream(stream);
-
-      socket.emit(
-        "startScreenShare",
-        {
-          transportId: screenTransport.id,
-          rtpParameters: screenProducer.rtpParameters,
-        },
-        (response: { id?: string; error?: string; codecOptions?: any }) => {
-          if (response.error) {
-            console.error("Error starting screen share:", response.error);
-            toast.error(response.error);
-            stopScreenShare();
-          } else {
-            console.log("Screen share started successfully:", response.id);
-            setIsScreenSharing(true);
-          }
-        }
-      );
-
+      setIsScreenSharing(true);
       console.log("Screen share producer created:", screenProducer.id);
     } catch (err) {
       console.error("Error starting screen share:", err);
       toast.error((err as Error).message);
     }
   }, [createScreenSendTransport, socket]);
-
-  const getActiveScreenShares = useCallback(() => {
-    return new Promise<
-      Array<{ userId: string; producerId: string; kind: string; appData: any }>
-    >((resolve, reject) => {
-      if (!socket || !connected) {
-        setError("Socket not connected");
-        reject(new Error("Socket not connected"));
-        return;
-      }
-
-      socket.emit(
-        "getActiveScreenShares",
-        {},
-        (
-          screenShares: Array<{
-            userId: string;
-            producerId: string;
-            kind: string;
-            appData: any;
-          }>
-        ) => {
-          resolve(screenShares);
-        }
-      );
-    });
-  }, [socket, connected]);
 
   const onNewScreenShare = useCallback(
     (
@@ -199,32 +155,11 @@ export function useScreenShare() {
     }
   }, [networkStats.quality, isScreenSharing]);
 
-  useEffect(() => {
-    return () => {
-      if (screenShareProducerRef.current) {
-        console.log("Cleaning up screen share producer on unmount");
-        try {
-          screenShareProducerRef.current.close();
-        } catch (error) {
-          console.error(
-            "Error closing screen share producer on unmount:",
-            error
-          );
-        }
-      }
-      if (screenShareStream) {
-        screenShareStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [screenShareStream]);
-
   return {
     isScreenSharing,
     screenShareStream,
-    error,
     startScreenShare,
     stopScreenShare,
-    getActiveScreenShares,
     onNewScreenShare,
     onScreenShareStopped,
   };
