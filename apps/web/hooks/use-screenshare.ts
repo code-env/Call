@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export function useScreenShare() {
-  const { socket, connected } = useSocket();
+  const { socket } = useSocket();
   const { createScreenSendTransport, screenSendTransportRef } = useMediasoup();
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -76,6 +76,8 @@ export function useScreenShare() {
         track: screenTrack,
         appData: { type: "screen" },
       });
+
+      console.log("screnshareStream", stream);
 
       screenShareProducerRef.current = screenProducer;
 

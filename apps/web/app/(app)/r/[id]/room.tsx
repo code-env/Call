@@ -9,7 +9,7 @@ import SetUp from "@/components/rooms/set-up";
 import ScreenShareDisplay from "@/components/screenshare-display";
 import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
-import { useScreenShare } from "@/hooks/use-screenshare";
+import { useScreenShareProvider } from "@/components/providers/screen-share";
 import { cn } from "@call/ui/lib/utils";
 import { calcSizesAndClasses } from "@/lib/calc-sizes-and-classes";
 import { Loader, Users2 } from "lucide-react";
@@ -49,7 +49,7 @@ const RoomPage = () => {
   } = useMediaControl();
 
   const { onNewScreenShare, onScreenShareStopped, screenShareStream } =
-    useScreenShare();
+    useScreenShareProvider();
 
   const [joined, setJoined] = useState(false);
   const consumedProducersRef = useRef<Set<string>>(new Set());
@@ -380,8 +380,6 @@ const RoomPage = () => {
         <Loader className="size-6 animate-spin" />
       </div>
     );
-
-  console.log("participants", participants, screenShareStream);
 
   return (
     <>

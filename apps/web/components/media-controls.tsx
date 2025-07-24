@@ -1,5 +1,4 @@
 import { useSocket } from "@/components/providers/socket";
-import { useScreenShare } from "@/hooks/use-screenshare";
 import { Button } from "@call/ui/components/button";
 import {
   CameraIcon,
@@ -13,6 +12,7 @@ import {
 import { Transport } from "mediasoup-client/types";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useScreenShareProvider } from "./providers/screen-share";
 
 interface MediaControlsProps {
   localStream: MediaStream | null;
@@ -31,7 +31,7 @@ export default function MediaControls({
   const [isMicOn, setIsMicOn] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
   const { startScreenShare, stopScreenShare, isScreenSharing } =
-    useScreenShare();
+    useScreenShareProvider();
 
   const { socket, connected } = useSocket();
 
