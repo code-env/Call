@@ -1,4 +1,5 @@
 import { useSocket } from "@/components/providers/socket";
+import { useScreenShare } from "@/hooks/use-screenshare";
 import { Button } from "@call/ui/components/button";
 import {
   CameraIcon,
@@ -16,23 +17,18 @@ import { toast } from "sonner";
 interface MediaControlsProps {
   localStream: MediaStream | null;
   sendTransport?: Transport;
-  startScreenShare?: () => Promise<void> | null;
-  stopScreenShare?: () => void;
-  isScreenSharing?: boolean;
   handleLeaveRoom: () => void;
 }
 
 export default function MediaControls({
   localStream,
-  sendTransport,
-  startScreenShare,
-  stopScreenShare,
-  isScreenSharing,
   handleLeaveRoom,
 }: MediaControlsProps) {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const { startScreenShare, stopScreenShare, isScreenSharing } =
+    useScreenShare();
 
   const { socket, connected } = useSocket();
 

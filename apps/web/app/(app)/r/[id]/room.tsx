@@ -10,12 +10,16 @@ import ScreenShareDisplay from "@/components/screenshare-display";
 import { useMediaControl } from "@/hooks/use-mediacontrol";
 import { useMediasoupClient } from "@/hooks/use-mediasoup";
 import { useScreenShare } from "@/hooks/use-screenshare";
+import { cn } from "@call/ui/lib/utils";
+import { calcSizesAndClasses } from "@/lib/calc-sizes-and-classes";
 import { Loader, Users2 } from "lucide-react";
 import type { Device } from "mediasoup-client";
 import type { AppData, Transport } from "mediasoup-client/types";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { Participant } from "@/lib/types";
+import { useMediasoup } from "@/components/providers/mediasoup";
 
 const RoomPage = () => {
   const router = useRouter();
@@ -31,10 +35,8 @@ const RoomPage = () => {
     socket,
     consume,
     deviceRef,
-    startScreenShare,
-    stopScreenShare,
     isScreenSharing,
-  } = useMediasoupClient();
+  } = useMediasoup();
 
   const {
     localStreamRef,
@@ -314,12 +316,61 @@ const RoomPage = () => {
     router.push("/r");
   };
 
+  const participants = useMemo(() => {
+    const list: Participant[] = [];
+
+    if (localStreamRef.current) {
+      list.push({
+        userId: currentUser?.id || "local",
+        name: "You",
+        stream: localStreamRef.current,
+        type: "local",
+        micActive: micEnabled,
+        camActive: cameraEnabled,
+        you: true,
+      });
+    }
+
+    Object.entries(remoteStreams).forEach(([userId, stream]) => {
+      const user = users.find((u) => u.id === userId);
+      list.push({
+        userId,
+        name: `User ${userId}`,
+        stream,
+        type: "remote",
+        micActive: user?.micActive,
+        camActive: user?.camActive,
+      });
+    });
+
+    Object.entries(screenShares).forEach(([userId, stream]) => {
+      list.push({
+        userId,
+        name: `Screen share from ${userId}`,
+        stream,
+        type: "screen",
+        isScreenSharing: true,
+      });
+    });
+
+    return list;
+  }, [
+    localStreamRef.current,
+    remoteStreams,
+    screenShares,
+    users,
+    micEnabled,
+    cameraEnabled,
+  ]);
+
   if (!room)
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader className="size-6 animate-spin" />
       </div>
     );
+
+  console.log("participants", participants);
 
   return (
     <>
@@ -334,42 +385,74 @@ const RoomPage = () => {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            {Object.keys(screenShares).length > 0 && (
-              <div className="mb-4 w-full">
-                <ScreenShareDisplay streams={screenShares} />
-              </div>
-            )}
+          <div className="flex flex-1 flex-col">
+            {(() => {
+              const isScreenSharing = Object.keys(screenShares).length > 0;
+              const othersSharing = Object.keys(screenShares).length > 0;
+              const others = Object.keys(remoteStreams).length;
+              const isYou = true; // Current user is always present
 
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              {localStreamRef.current && (
-                <Player stream={localStreamRef.current} name="You" you />
-              )}
-              {Object.entries(remoteStreams).map(([userId, stream]) => {
-                const user = users.find((u) => u.id === userId);
+              const {
+                containerClasses,
+                playerClasses,
+                screenShareClasses,
+                participantsClasses,
+              } = calcSizesAndClasses(
+                isYou,
+                isScreenSharing,
+                othersSharing,
+                others
+              );
 
-                return (
-                  <Player
-                    key={userId}
-                    stream={stream}
-                    name={`User ${userId}`}
-                    micActive={user?.micActive}
-                    camActive={user?.camActive}
-                    isShareScreen={user?.isShareScreen}
-                    you={false}
-                  />
-                );
-              })}
-            </div>
+              return (
+                <div className={cn("flex-1", containerClasses)}>
+                  {isScreenSharing && (
+                    <div className={screenShareClasses}>
+                      <ScreenShareDisplay
+                        streams={screenShares}
+                        className="h-full"
+                      />
+                    </div>
+                  )}
+
+                  <div className={participantsClasses || containerClasses}>
+                    {localStreamRef.current && (
+                      <div className={playerClasses}>
+                        <Player
+                          stream={localStreamRef.current}
+                          name="You"
+                          you
+                          className={playerClasses}
+                        />
+                      </div>
+                    )}
+                    {Object.entries(remoteStreams).map(([userId, stream]) => {
+                      const user = users.find((u) => u.id === userId);
+
+                      return (
+                        <div key={userId} className={playerClasses}>
+                          <Player
+                            stream={stream}
+                            name={`User ${userId}`}
+                            micActive={user?.micActive}
+                            camActive={user?.camActive}
+                            isShareScreen={user?.isShareScreen}
+                            you={false}
+                            className={playerClasses}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {joined && localStreamRef.current && (
             <MediaControls
               localStream={localStreamRef.current}
               sendTransport={sendTransport as Transport<AppData>}
-              startScreenShare={startScreenShare}
-              stopScreenShare={stopScreenShare}
-              isScreenSharing={isScreenSharing}
               handleLeaveRoom={handleLeaveRoom}
             />
           )}

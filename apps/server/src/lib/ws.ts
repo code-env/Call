@@ -202,6 +202,7 @@ const socketIoConnection = async (io: SocketIOServer) => {
         });
 
         if (appData?.type === "screen") {
+          currentRoom.addScreenShareProducer(peerId, producer);
           socket.to(currentRoom.id).emit("newScreenShare", {
             producerId: producer.id,
             userId: peerId,

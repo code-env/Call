@@ -56,3 +56,16 @@ export interface CreateTeamRequest {
   name: string;
   members: string[];
 }
+
+type ParticipantType = "local" | "remote" | "screen";
+
+export type Participant = {
+  userId: string;
+  name: string;
+  stream: MediaStream;
+  type: ParticipantType;
+  micActive?: boolean;
+  camActive?: boolean;
+  isScreenSharing?: boolean;
+  you?: boolean;
+};

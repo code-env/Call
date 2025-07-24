@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@call/ui/lib/utils";
 
 interface ScreenShareDisplayProps {
   streams: Record<string, MediaStream>;
   onSelect?: (userId: string) => void;
+  className?: string;
 }
 
-const ScreenShareDisplay = ({ streams, onSelect }: ScreenShareDisplayProps) => {
+const ScreenShareDisplay = ({
+  streams,
+  onSelect,
+  className,
+}: ScreenShareDisplayProps) => {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamEntries = Object.entries(streams);
@@ -54,13 +60,18 @@ const ScreenShareDisplay = ({ streams, onSelect }: ScreenShareDisplayProps) => {
   }
 
   return (
-    <div className="flex w-full flex-col">
-      <div className="relative w-full overflow-hidden rounded-lg bg-black">
+    <div className={cn("flex w-full flex-col", className)}>
+      <div
+        className={cn(
+          "relative w-full overflow-hidden rounded-lg bg-black",
+          className?.includes("h-full") && "h-full"
+        )}
+      >
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          className="h-[504px] w-full object-contain"
+          className="h-full w-full object-contain"
         />
         {selectedUserId && (
           <div className="absolute bottom-4 left-4 rounded-md bg-blue-500/70 px-3 py-1.5 text-white">

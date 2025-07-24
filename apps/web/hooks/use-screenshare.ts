@@ -1,174 +1,109 @@
-import { useCallback, useRef, useState, useEffect } from "react";
-import type { Producer, Transport } from "mediasoup-client/types";
+import { useMediasoup } from "@/components/providers/mediasoup";
 import { useSocket } from "@/components/providers/socket";
 import { useNetworkMonitor } from "@/hooks/use-network-monitor";
+import type { Producer } from "mediasoup-client/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 export function useScreenShare() {
   const { socket, connected } = useSocket();
-
+  const { createScreenSendTransport, screenSendTransportRef } = useMediasoup();
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenShareStream, setScreenShareStream] =
     useState<MediaStream | null>(null);
   const screenShareProducerRef = useRef<Producer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isStartingScreenShare, setIsStartingScreenShare] = useState(false);
 
   const networkStats = useNetworkMonitor();
 
   const stopScreenShare = useCallback(() => {
-    if (!socket || !connected) {
-      setError("Socket not connected");
-      return;
+    if (screenShareProducerRef.current) {
+      screenShareProducerRef.current.close();
+      screenShareProducerRef.current = null;
     }
+
+    setIsScreenSharing(false);
+
+    if (socket) {
+      socket.emit(
+        "stopScreenShare",
+        {},
+        (response: { stopped?: boolean; error?: string }) => {
+          if (response?.error) {
+            console.error("Error stopping screen share:", response.error);
+            toast.error(response.error);
+          } else {
+            console.log("Screen share stopped successfully");
+          }
+        }
+      );
+    }
+  }, [socket]);
+
+  const startScreenShare = useCallback(async () => {
+    if (!socket) return;
 
     try {
       if (screenShareProducerRef.current) {
         screenShareProducerRef.current.close();
+        screenShareProducerRef.current = null;
+      }
 
-        socket.emit(
-          "stopScreenShare",
-          {},
-          (response: { stopped?: boolean; error?: string }) => {
-            if (response.error) {
-              console.error("Error stopping screen share:", response.error);
-            } else {
-              console.log("Screen share stopped successfully");
-            }
+      if (screenSendTransportRef.current) {
+        screenSendTransportRef.current.close();
+        screenSendTransportRef.current = null;
+      }
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      });
+
+      const screenTrack = stream.getVideoTracks()[0];
+      if (!screenTrack) throw new Error("No video track for screen");
+
+      screenTrack.onended = () => stopScreenShare();
+
+      const screenTransport = await createScreenSendTransport();
+      if (!screenTransport)
+        throw new Error("Failed to create screen transport");
+
+      const screenProducer = await screenTransport.produce({
+        track: screenTrack,
+        appData: { type: "screen" },
+      });
+
+      screenShareProducerRef.current = screenProducer;
+      setScreenShareStream(stream);
+
+      socket.emit(
+        "startScreenShare",
+        {
+          transportId: screenTransport.id,
+          rtpParameters: screenProducer.rtpParameters,
+        },
+        (response: { id?: string; error?: string; codecOptions?: any }) => {
+          if (response.error) {
+            console.error("Error starting screen share:", response.error);
+            toast.error(response.error);
+            stopScreenShare();
+          } else {
+            console.log("Screen share started successfully:", response.id);
+            setIsScreenSharing(true);
           }
-        );
-      }
-
-      if (screenShareStream) {
-        screenShareStream.getTracks().forEach((track) => track.stop());
-      }
-
-      setScreenShareStream(null);
-      screenShareProducerRef.current = null;
-      setIsScreenSharing(false);
-      setError(null);
-    } catch (error) {
-      console.error("Error stopping screen share:", error);
-      setError(`Failed to stop screen sharing: ${(error as Error).message}`);
-    }
-  }, [socket, connected, screenShareStream]);
-
-  const startScreenShare = useCallback(
-    async (sendTransport: Transport) => {
-      if (!socket || !connected) {
-        setError("Socket not connected");
-        return null;
-      }
-
-      if (isScreenSharing || screenShareProducerRef.current) {
-        console.log("Screen share already active, stopping first");
-        stopScreenShare();
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      if (isStartingScreenShare) {
-        console.log("Screen share already starting, ignoring request");
-        return null;
-      }
-
-      setIsStartingScreenShare(true);
-
-      try {
-        setError(null);
-
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30 },
-            ...({
-              cursor: "always",
-              displaySurface: "monitor",
-            } as any),
-          },
-          audio: false,
-        });
-
-        setScreenShareStream(stream);
-
-        const track = stream.getVideoTracks()[0];
-
-        track?.addEventListener("ended", () => {
-          console.log("Screen share track ended by browser UI");
-          stopScreenShare();
-        });
-
-        track?.addEventListener("mute", () => {
-          console.log("Screen share track muted");
-        });
-
-        track?.addEventListener("unmute", () => {
-          console.log("Screen share track unmuted");
-        });
-
-        track?.addEventListener("error", (event) => {
-          console.error("Screen share track error:", event);
-          setError("Screen sharing encountered an error. Stopping share.");
-          stopScreenShare();
-        });
-
-        const detectContentType = (track: MediaStreamTrack) => {
-          const settings = track.getSettings();
-          const frameRate = settings.frameRate || 30;
-
-          if (frameRate > 25) return "dynamic";
-          if (frameRate < 10) return "static";
-          return "mixed";
-        };
-
-        const contentType = detectContentType(track as MediaStreamTrack);
-        console.log(`Detected screen share content type: ${contentType}`);
-
-        const screenShareProducer = await sendTransport.produce({
-          track,
-          encodings:
-            contentType === "static"
-              ? [
-                  {
-                    maxBitrate: 1000000,
-                    maxFramerate: 5,
-                  },
-                ]
-              : [
-                  {
-                    maxBitrate: 3000000,
-                    maxFramerate: 30,
-                  },
-                ],
-          codecOptions: {
-            videoGoogleStartBitrate: 1000,
-          },
-          appData: {
-            mediaType: "screenShare",
-            contentType: contentType,
-          },
-        });
-
-        screenShareProducerRef.current = screenShareProducer;
-        setIsScreenSharing(true);
-        return screenShareProducer;
-      } catch (error) {
-        console.log("error", error);
-        if ((error as Error).name === "NotAllowedError") {
-          console.log("User denied screen sharing permission");
-          setError("Screen sharing permission denied");
-        } else {
-          console.error("Error starting screen share:", error);
-          setError(
-            `Failed to start screen sharing: ${(error as Error).message}`
-          );
         }
-        return null;
-      } finally {
-        setIsStartingScreenShare(false);
-      }
-    },
-    [socket, connected, isScreenSharing, stopScreenShare, isStartingScreenShare]
-  );
+      );
+
+      console.log("Screen share producer created:", screenProducer.id);
+    } catch (err) {
+      console.error("Error starting screen share:", err);
+      toast.error((err as Error).message);
+    }
+  }, [createScreenSendTransport, socket]);
 
   const getActiveScreenShares = useCallback(() => {
     return new Promise<
@@ -233,12 +168,10 @@ export function useScreenShare() {
 
       console.log("Network quality changed:", networkStats.quality);
 
-      // Adjust producer parameters based on network quality
       if (producer.setMaxSpatialLayer) {
         try {
           switch (networkStats.quality) {
             case "low":
-              // Use lowest quality layer
               producer.setMaxSpatialLayer(0);
               console.log(
                 "Set screen share to low quality due to network conditions"
@@ -289,7 +222,6 @@ export function useScreenShare() {
     isScreenSharing,
     screenShareStream,
     error,
-    isStartingScreenShare,
     startScreenShare,
     stopScreenShare,
     getActiveScreenShares,

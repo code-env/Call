@@ -11,6 +11,7 @@ interface PlayerProps {
   micActive?: boolean;
   camActive?: boolean;
   isShareScreen?: boolean;
+  className?: string;
 }
 
 const Player = ({
@@ -21,6 +22,7 @@ const Player = ({
   isScreenShare = false,
   micActive = false,
   camActive = false,
+  className,
 }: PlayerProps) => {
   console.log({
     you,
@@ -71,7 +73,8 @@ const Player = ({
     <div
       className={cn(
         "relative overflow-hidden rounded-lg",
-        isScreenShare ? "col-span-2" : ""
+        isScreenShare ? "col-span-2" : "",
+        className
       )}
     >
       <video
@@ -79,11 +82,10 @@ const Player = ({
         autoPlay
         playsInline
         muted={you}
-        className={`rounded-lg bg-black shadow-lg ${
-          isScreenShare
-            ? "h-[480px] w-full object-contain"
-            : "h-[240px] w-[320px]"
-        }`}
+        className={cn(
+          "h-full w-full rounded-lg bg-black object-cover shadow-lg",
+          isScreenShare && "object-contain"
+        )}
       />
       {audioStream && <audio ref={audioRef} autoPlay playsInline />}
       {/* {you ? null : camActive ? null : (

@@ -1,3 +1,4 @@
+import { MediasoupProvider } from "@/components/providers/mediasoup";
 import { RoomProvider } from "@/components/providers/room";
 import { SocketProvider } from "@/components/providers/socket";
 import { UsersProvider } from "@/components/providers/users";
@@ -7,7 +8,9 @@ const RoomLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <SocketProvider>
       <RoomProvider>
-        <UsersProvider>{children}</UsersProvider>
+        <UsersProvider>
+          <MediasoupProvider>{children}</MediasoupProvider>
+        </UsersProvider>
       </RoomProvider>
     </SocketProvider>
   );

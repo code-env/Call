@@ -34,7 +34,6 @@ export function useMediasoupClient() {
   const [remoteStreams, setRemoteStreams] = useState<MediaStream[]>([]);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenSendTransportRef = useRef<Transport | null>(null);
-  const screenRecvTransportRef = useRef<Transport | null>(null);
 
   const joinRoom = useCallback(
     async (roomId: string, userId?: string): Promise<JoinResponse> => {
@@ -390,95 +389,6 @@ export function useMediasoupClient() {
     });
   }, [socket]);
 
-  const startScreenShare = useCallback(async () => {
-    if (!socket) return;
-
-    try {
-      if (screenShareProducerRef.current) {
-        screenShareProducerRef.current.close();
-        screenShareProducerRef.current = null;
-      }
-
-      if (screenSendTransportRef.current) {
-        screenSendTransportRef.current.close();
-        screenSendTransportRef.current = null;
-      }
-
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30 },
-        },
-        audio: false,
-      });
-
-      const screenTrack = stream.getVideoTracks()[0];
-      if (!screenTrack) throw new Error("No video track for screen");
-
-      screenTrack.onended = () => stopScreenShare();
-
-      const screenTransport = await createScreenSendTransport();
-      if (!screenTransport)
-        throw new Error("Failed to create screen transport");
-
-      const screenProducer = await screenTransport.produce({
-        track: screenTrack,
-        appData: { type: "screen" },
-      });
-
-      screenShareProducerRef.current = screenProducer;
-      setIsScreenSharing(true);
-
-      socket.emit(
-        "startScreenShare",
-        {
-          transportId: screenTransport.id,
-          rtpParameters: screenProducer.rtpParameters,
-        },
-        (response: { id?: string; error?: string; codecOptions?: any }) => {
-          if (response.error) {
-            console.error("Error starting screen share:", response.error);
-            toast.error(response.error);
-            stopScreenShare();
-          } else {
-            console.log("Screen share started successfully:", response.id);
-            setIsScreenSharing(true);
-          }
-        }
-      );
-
-      console.log("Screen share producer created:", screenProducer.id);
-    } catch (err) {
-      console.error("Error starting screen share:", err);
-      toast.error((err as Error).message);
-    }
-  }, [createScreenSendTransport, socket]);
-
-  const stopScreenShare = useCallback(() => {
-    if (screenShareProducerRef.current) {
-      screenShareProducerRef.current.close();
-      screenShareProducerRef.current = null;
-    }
-
-    setIsScreenSharing(false);
-
-    if (socket) {
-      socket.emit(
-        "stopScreenShare",
-        {},
-        (response: { stopped?: boolean; error?: string }) => {
-          if (response?.error) {
-            console.error("Error stopping screen share:", response.error);
-            toast.error(response.error);
-          } else {
-            console.log("Screen share stopped successfully");
-          }
-        }
-      );
-    }
-  }, [socket]);
-
   return {
     joinRoom,
     loadDevice,
@@ -486,8 +396,6 @@ export function useMediasoupClient() {
     createRecvTransport,
     produce,
     consume,
-    startScreenShare,
-    stopScreenShare,
     isScreenSharing,
     localStream,
     setLocalStream,
@@ -496,5 +404,7 @@ export function useMediasoupClient() {
     socket,
     device: deviceRef.current,
     deviceRef,
+    screenSendTransportRef,
+    createScreenSendTransport,
   };
 }
