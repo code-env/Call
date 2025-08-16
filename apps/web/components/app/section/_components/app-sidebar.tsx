@@ -116,6 +116,9 @@ export function AppSidebar({
                     }
                   }}
                   asChild
+                  className={cn(
+                    isThoughts && "hover:bg-primary-blue/10 font-medium"
+                  )}
                 >
                   {item.type === "button" ? (
                     <Button

@@ -1,13 +1,13 @@
 "use client";
 
 import Header from "@/components/app/header";
+import { CloseSidebarButton } from "@/components/app/section/_components/close-sidebar-button";
 import NotificationSection from "@/components/app/section/notification-section";
-import { Button, buttonVariants } from "@call/ui/components/button";
+import { buttonVariants } from "@call/ui/components/button";
 import { cn } from "@call/ui/lib/utils";
 import { motion as m } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import { CloseSidebarButton } from "@/components/app/section/_components/close-sidebar-button";
 
 const SECTIONS = [
   { key: "all", label: "All notifications" },

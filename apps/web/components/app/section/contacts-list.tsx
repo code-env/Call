@@ -133,7 +133,7 @@ export default function ContactsList({ onAddContact }: ContactsListProps) {
 
   if (user.id === "guest") {
     return (
-      <div className="px-10 py-6">
+      <div className="container mx-auto px-10 py-6">
         <NoContactsFound onAddContact={onAddContact} />
       </div>
     );
@@ -141,7 +141,7 @@ export default function ContactsList({ onAddContact }: ContactsListProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto space-y-6 px-10 py-6">
         <div className="flex h-64 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="text-primary h-6 w-6 animate-spin" />
@@ -154,7 +154,7 @@ export default function ContactsList({ onAddContact }: ContactsListProps) {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto space-y-6 px-10 py-6">
         <div className="flex h-64 items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="rounded-full bg-red-50 p-3">
@@ -174,7 +174,7 @@ export default function ContactsList({ onAddContact }: ContactsListProps) {
   const hasSearchResults = filteredContacts.length > 0;
 
   return (
-    <div className="px-10 py-6">
+    <div className="container mx-auto px-10 py-6">
       <div className="flex flex-col gap-6">
         {hasContacts ? (
           <div className="flex items-center gap-2">
@@ -339,7 +339,9 @@ const NoContactsFound = ({ onAddContact }: { onAddContact?: () => void }) => {
     <div className="bg-inset-accent border-inset-accent-foreground col-span-full flex h-96 flex-col items-center justify-center gap-4 rounded-xl border p-4 text-center">
       <div className="flex flex-col items-center">
         <h1 className="text-lg font-medium">
-          {isGuest ? "Sign in to manage contacts" : "You don\'t have any contacts yet."}
+          {isGuest
+            ? "Sign in to manage contacts"
+            : "You don\'t have any contacts yet."}
         </h1>
         <p className="text-muted-foreground">
           {isGuest

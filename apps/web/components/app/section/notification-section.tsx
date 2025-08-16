@@ -7,19 +7,19 @@ import { Icons } from "@call/ui/components/icons";
 import { Input } from "@call/ui/components/input";
 import { iconvVariants, UserProfile } from "@call/ui/components/use-profile";
 import { cn } from "@call/ui/lib/utils";
-import { 
-  Bell, 
-  Phone, 
-  Users, 
-  UserPlus, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Bell,
+  Phone,
+  Users,
+  UserPlus,
+  CheckCircle,
+  XCircle,
   Clock,
   Video,
   Calendar,
   X,
   Loader2,
-  MoreVertical
+  MoreVertical,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ interface Notification {
 const SECTIONS = {
   all: "All notifications",
   calls: "Calls",
-  schedules: "Schedules", 
+  schedules: "Schedules",
   teams: "Teams",
   contacts: "Contacts",
 };
@@ -81,14 +81,16 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch both call notifications and contact requests
         const [notificationsRes, contactRequestsRes] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/notifications`, {
             credentials: "include",
           }),
-          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/contacts/requests`, {
-            credentials: "include",
-          }),
+          fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/contacts/requests`,
+            {
+              credentials: "include",
+            }
+          ),
         ]);
 
         if (!notificationsRes.ok)
@@ -101,7 +103,6 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
           contactRequestsRes.json(),
         ]);
 
-        // Transform contact requests into notifications format
         const contactNotifications = (contactRequestsData.requests || []).map(
           (req: any) => ({
             id: req.id,
@@ -144,11 +145,20 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
     // Apply section filter
     if (section === "calls") {
       filtered = filtered.filter(
-        (n) => n.type === "call" && n.invitationId && !(typeof n.message === "string" && n.message.includes("started a meeting in team"))
+        (n) =>
+          n.type === "call" &&
+          n.invitationId &&
+          !(
+            typeof n.message === "string" &&
+            n.message.includes("started a meeting in team")
+          )
       );
     } else if (section === "teams") {
       filtered = filtered.filter(
-        (n) => n.type === "call" && typeof n.message === "string" && n.message.includes("started a meeting in team")
+        (n) =>
+          n.type === "call" &&
+          typeof n.message === "string" &&
+          n.message.includes("started a meeting in team")
       );
     } else if (section === "contacts") {
       filtered = filtered.filter((n) => n.type === "contact");
@@ -167,10 +177,10 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
           notification.inviterEmail,
           notification.senderName,
           notification.senderEmail,
-          notification.callName
+          notification.callName,
         ];
-        
-        return searchableFields.some(field => 
+
+        return searchableFields.some((field) =>
           field?.toLowerCase().includes(query)
         );
       });
@@ -244,7 +254,7 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
     setActionLoading(requestId);
     try {
       const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/contacts/requests/${requestId}/${action}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/contacts/requests/${requestId}/${action}`,
         {
           method: "PATCH",
           credentials: "include",
@@ -272,8 +282,10 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
 
     if (diffInSeconds < 60) return "Just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 2592000)
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
 
@@ -285,7 +297,7 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
 
   if (user.id === "guest") {
     return (
-      <div className="px-10 space-y-6">
+      <div className="space-y-6 px-10">
         <div className="flex flex-col gap-6">
           <NoNotificationsFound />
         </div>
@@ -295,11 +307,13 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto space-y-6 px-10 py-6">
         <div className="flex h-64 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading notifications...</p>
+            <Loader2 className="text-primary h-6 w-6 animate-spin" />
+            <p className="text-muted-foreground text-sm">
+              Loading notifications...
+            </p>
           </div>
         </div>
       </div>
@@ -308,14 +322,18 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="container mx-auto space-y-6 px-10 py-6">
         <div className="flex h-64 items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="rounded-full bg-red-50 p-3">
               <Bell className="h-8 w-8 text-red-500" />
             </div>
-            <p className="text-red-500 text-sm">Failed to load notifications</p>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <p className="text-sm text-red-500">Failed to load notifications</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.reload()}
+            >
               Try Again
             </Button>
           </div>
@@ -328,7 +346,7 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
   const hasSearchResults = filteredNotifications.length > 0;
 
   return (
-    <div className="px-10 space-y-6">
+    <div className="container mx-auto space-y-6 px-10 py-6">
       <div className="flex flex-col gap-6">
         {hasNotifications ? (
           <div className="flex items-center gap-2">
@@ -338,7 +356,7 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
                 placeholder="Search notifications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-10 py-2.5 h-11 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="focus:ring-primary/20 h-11 rounded-lg border py-2.5 pl-10 pr-10 text-sm focus:outline-none focus:ring-2"
               />
               <Icons.search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
               {searchQuery && (
@@ -346,26 +364,26 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
                   variant="ghost"
                   size="icon"
                   onClick={clearSearch}
-                  className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 transform hover:bg-muted/50"
+                  className="hover:bg-muted/50 absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 transform"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               )}
             </div>
-         
           </div>
         ) : null}
-        
+
         {/* No results message */}
         {hasNotifications && !hasSearchResults && (
           <div className="flex h-64 flex-col items-center justify-center text-center">
             <div className="flex flex-col items-center gap-4">
-              <div className="rounded-full bg-muted/50 p-4">
-                <Bell className="h-8 w-8 text-muted-foreground" />
+              <div className="bg-muted/50 rounded-full p-4">
+                <Bell className="text-muted-foreground h-8 w-8" />
               </div>
               <h3 className="text-lg font-medium">No notifications found</h3>
               <p className="text-muted-foreground max-w-sm">
-                No notifications match your search criteria. Try adjusting your search terms.
+                No notifications match your search criteria. Try adjusting your
+                search terms.
               </p>
               {searchQuery && (
                 <Button variant="outline" size="sm" onClick={clearSearch}>
@@ -380,14 +398,21 @@ const NotificationSection = ({ section }: NotificationSectionProps) => {
         {hasSearchResults && (
           <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredNotifications.map((notification) => (
-              <NotificationCard 
-                key={notification.id} 
+              <NotificationCard
+                key={notification.id}
                 notification={notification}
                 onAccept={handleAccept}
                 onReject={handleReject}
                 onContactAction={handleContactAction}
-                isActionLoading={actionLoading === notification.id || actionLoading === notification.invitationId || actionLoading === notification.contactRequestId}
-                onJoinCall={() => notification.callId && router.push(`/app/call/${notification.callId}`)}
+                isActionLoading={
+                  actionLoading === notification.id ||
+                  actionLoading === notification.invitationId ||
+                  actionLoading === notification.contactRequestId
+                }
+                onJoinCall={() =>
+                  notification.callId &&
+                  router.push(`/app/call/${notification.callId}`)
+                }
               />
             ))}
           </div>
@@ -409,13 +434,13 @@ interface NotificationCardProps {
   onJoinCall: () => void;
 }
 
-const NotificationCard = ({ 
-  notification, 
-  onAccept, 
-  onReject, 
-  onContactAction, 
+const NotificationCard = ({
+  notification,
+  onAccept,
+  onReject,
+  onContactAction,
   isActionLoading,
-  onJoinCall 
+  onJoinCall,
 }: NotificationCardProps) => {
   const getNotificationType = (notification: Notification) => {
     if (notification.type === "contact") return "contact";
@@ -425,15 +450,21 @@ const NotificationCard = ({
 
   const notificationType = getNotificationType(notification);
   const isContact = notification.type === "contact";
-  const senderName = isContact ? notification.senderName : notification.inviterName;
-  const senderEmail = isContact ? notification.senderEmail : notification.inviterEmail;
-  const profilePictureUrl = isContact ? notification.senderProfilePictureUrl : notification.inviterProfilePictureUrl;
+  const senderName = isContact
+    ? notification.senderName
+    : notification.inviterName;
+  const senderEmail = isContact
+    ? notification.senderEmail
+    : notification.inviterEmail;
+  const profilePictureUrl = isContact
+    ? notification.senderProfilePictureUrl
+    : notification.inviterProfilePictureUrl;
   const displayName = senderName || senderEmail || "Unknown User";
 
   const typeIcons: Record<string, React.ReactElement> = {
     call: <Video className="h-4 w-4" />,
     team: <Users className="h-4 w-4" />,
-    contact: <UserPlus className="h-4 w-4" />
+    contact: <UserPlus className="h-4 w-4" />,
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -443,8 +474,10 @@ const NotificationCard = ({
 
     if (diffInSeconds < 60) return "Just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 2592000)
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
 
@@ -463,15 +496,15 @@ const NotificationCard = ({
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-                     <DropdownMenuContent align="end">
-             <DropdownMenuItem onClick={() => window.location.reload()}>
-               <Loader2 className="mr-2 h-4 w-4" />
-               Refresh
-             </DropdownMenuItem>
-           </DropdownMenuContent>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => window.location.reload()}>
+              <Loader2 className="mr-2 h-4 w-4" />
+              Refresh
+            </DropdownMenuItem>
+          </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      
+
       <div className="flex items-center gap-2">
         <Clock className="size-4" />
         <span className="text-muted-foreground text-sm">
@@ -499,7 +532,9 @@ const NotificationCard = ({
       {isContact ? (
         <div className="flex gap-2">
           <Button
-            onClick={() => onContactAction(notification.contactRequestId!, "accept")}
+            onClick={() =>
+              onContactAction(notification.contactRequestId!, "accept")
+            }
             disabled={isActionLoading}
             className="flex-1"
             size="sm"
@@ -512,7 +547,9 @@ const NotificationCard = ({
           </Button>
           <Button
             variant="outline"
-            onClick={() => onContactAction(notification.contactRequestId!, "reject")}
+            onClick={() =>
+              onContactAction(notification.contactRequestId!, "reject")
+            }
             disabled={isActionLoading}
             className="flex-1"
             size="sm"
@@ -524,10 +561,16 @@ const NotificationCard = ({
             )}
           </Button>
         </div>
-      ) : notification.invitationStatus === "pending" && notification.invitationId ? (
+      ) : notification.invitationStatus === "pending" &&
+        notification.invitationId ? (
         <div className="flex gap-2">
           <Button
-            onClick={() => onAccept(notification.invitationId ?? undefined, notification.callId)}
+            onClick={() =>
+              onAccept(
+                notification.invitationId ?? undefined,
+                notification.callId
+              )
+            }
             disabled={isActionLoading}
             className="flex-1"
             size="sm"
@@ -563,11 +606,7 @@ const NotificationCard = ({
           <span className="text-sm">Declined</span>
         </div>
       ) : notification.callId ? (
-        <Button
-          onClick={onJoinCall}
-          className="w-full"
-          size="sm"
-        >
+        <Button onClick={onJoinCall} className="w-full" size="sm">
           Join Meeting
         </Button>
       ) : null}
@@ -578,12 +617,14 @@ const NotificationCard = ({
 const NoNotificationsFound = () => {
   const { user } = useSession();
   const isGuest = !user?.id || user.id === "guest";
-  
+
   return (
-    <div className="bg-inset-accent border-inset-accent-foreground col-span-full flex h-96 flex-col items-center justify-center gap-4 rounded-xl border p-4 text-center">
+    <div className="bg-inset-accent border-inset-accent-foreground container col-span-full mx-auto flex h-96 flex-col items-center justify-center gap-4 rounded-xl border p-4 text-center">
       <div className="flex flex-col items-center">
         <h1 className="text-lg font-medium">
-          {isGuest ? "Sign in to view notifications" : "You don\'t have any notifications yet."}
+          {isGuest
+            ? "Sign in to view notifications"
+            : "You don\'t have any notifications yet."}
         </h1>
         <p className="text-muted-foreground">
           {isGuest
@@ -591,9 +632,7 @@ const NoNotificationsFound = () => {
             : "Notifications will appear here when you receive calls or contact requests."}
         </p>
       </div>
-      {isGuest ? (
-        <SocialButton />
-      ) : null}
+      {isGuest ? <SocialButton /> : null}
     </div>
   );
 };
